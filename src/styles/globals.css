@@ -1,41 +1,68 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
-@custom-variant dark (&:is(.dark *));
+/* 
+  * This is the root colours for the web app in light mode.
+  1. To apply any styles we can just add text-<style_name>-foreground and bg-<style_name> for background.
+  
+  By default for buttons it is : bg-primary and text-primary-foreground
+  Refer this : https://medium.com/@enayetflweb/theming-in-shadcn-ui-customizing-your-design-with-css-variables-bb6927d2d66b
+*/
 
+/* Change colour here */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* Base colors */
+  --background: oklch(1 0 0); /* Pure white */
+  --foreground: oklch(0.55 0.25 240);
   --radius: 0.625rem;
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.129 0.042 264.695);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.129 0.042 264.695);
-  --primary: oklch(0.208 0.042 265.755);
-  --primary-foreground: oklch(0.984 0.003 247.858);
-  --secondary: oklch(0.968 0.007 247.896);
-  --secondary-foreground: oklch(0.208 0.042 265.755);
-  --muted: oklch(0.968 0.007 247.896);
-  --muted-foreground: oklch(0.554 0.046 257.417);
-  --accent: oklch(0.968 0.007 247.896);
-  --accent-foreground: oklch(0.208 0.042 265.755);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.929 0.013 255.508);
-  --input: oklch(0.929 0.013 255.508);
-  --ring: oklch(0.704 0.04 256.788);
-  --chart-1: oklch(0.646 0.222 41.116);
-  --chart-2: oklch(0.6 0.118 184.704);
-  --chart-3: oklch(0.398 0.07 227.392);
-  --chart-4: oklch(0.828 0.189 84.429);
-  --chart-5: oklch(0.769 0.188 70.08);
-  --sidebar: oklch(0.984 0.003 247.858);
-  --sidebar-foreground: oklch(0.129 0.042 264.695);
-  --sidebar-primary: oklch(0.208 0.042 265.755);
-  --sidebar-primary-foreground: oklch(0.984 0.003 247.858);
-  --sidebar-accent: oklch(0.968 0.007 247.896);
-  --sidebar-accent-foreground: oklch(0.208 0.042 265.755);
-  --sidebar-border: oklch(0.929 0.013 255.508);
-  --sidebar-ring: oklch(0.704 0.04 256.788);
+
+  /* Card and popover */
+  --card: oklch(1 0 0); /* White */
+  --card-foreground: oklch(0.2 0 0); /* Dark gray */
+  --popover: oklch(1 0 0); /* White */
+  --popover-foreground: oklch(0.2 0 0); /* Dark gray */
+
+  /* Primary - vibrant blue */
+  --primary: oklch(0.5 0.2 240); /* Vibrant blue */
+  --primary-foreground: oklch(1 0 0); /* White */
+
+  /* Secondary - light blue-gray */
+  --secondary: oklch(0.95 0.03 240); /* Very light blue */
+  --secondary-foreground: oklch(0.3 0.1 240); /* Darker blue */
+
+  /* Muted - subtle blue tint */
+  --muted: oklch(0.97 0.02 240); /* Very light blue-gray */
+  --muted-foreground: oklch(0.55 0.05 240); /* Medium blue-gray */
+
+  /* Accent - complementary color */
+  --accent: oklch(0.9 0.05 260); /* Light purple-blue */
+  --accent-foreground: oklch(0.25 0.1 260); /* Dark purple-blue */
+
+  /* Destructive - red */
+  --destructive: oklch(0.65 0.25 25); /* Red */
+  --destructive-foreground: oklch(1 0 0); /* White */
+
+  /* Borders and inputs */
+  --border: oklch(0.9 0.02 240); /* Light blue-gray border */
+  --input: oklch(0.9 0.02 240); /* Light blue-gray input */
+  --ring: oklch(0.55 0.25 240); /* Same as primary for focus rings */
+
+  /* Chart colors - harmonious with blue */
+  --chart-1: oklch(0.55 0.25 240); /* Primary blue */
+  --chart-2: oklch(0.6 0.18 270); /* Purple */
+  --chart-3: oklch(0.65 0.15 210); /* Teal */
+  --chart-4: oklch(0.7 0.12 180); /* Cyan */
+  --chart-5: oklch(0.55 0.22 260); /* Deep purple */
+
+  /* Sidebar */
+  --sidebar: oklch(0.15 0.03 240); /* Dark blue-gray */
+  --sidebar-foreground: oklch(0.95 0 0); /* Off-white */
+  --sidebar-primary: oklch(0.55 0.25 240); /* Same as primary */
+  --sidebar-primary-foreground: oklch(1 0 0); /* White */
+  --sidebar-accent: oklch(0.25 0.1 240); /* Dark blue */
+  --sidebar-accent-foreground: oklch(0.95 0 0); /* Off-white */
+  --sidebar-border: oklch(0.3 0.05 240); /* Dark blue-gray border */
+  --sidebar-ring: oklch(0.55 0.25 240); /* Same as primary */
 }
 
 @theme inline {
@@ -78,51 +105,10 @@
   --radius-xl: calc(var(--radius) + 4px);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
 body {
   background: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
-}
-
-.dark {
-  --background: oklch(0.129 0.042 264.695);
-  --foreground: oklch(0.984 0.003 247.858);
-  --card: oklch(0.208 0.042 265.755);
-  --card-foreground: oklch(0.984 0.003 247.858);
-  --popover: oklch(0.208 0.042 265.755);
-  --popover-foreground: oklch(0.984 0.003 247.858);
-  --primary: oklch(0.929 0.013 255.508);
-  --primary-foreground: oklch(0.208 0.042 265.755);
-  --secondary: oklch(0.279 0.041 260.031);
-  --secondary-foreground: oklch(0.984 0.003 247.858);
-  --muted: oklch(0.279 0.041 260.031);
-  --muted-foreground: oklch(0.704 0.04 256.788);
-  --accent: oklch(0.279 0.041 260.031);
-  --accent-foreground: oklch(0.984 0.003 247.858);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.551 0.027 264.364);
-  --chart-1: oklch(0.488 0.243 264.376);
-  --chart-2: oklch(0.696 0.17 162.48);
-  --chart-3: oklch(0.769 0.188 70.08);
-  --chart-4: oklch(0.627 0.265 303.9);
-  --chart-5: oklch(0.645 0.246 16.439);
-  --sidebar: oklch(0.208 0.042 265.755);
-  --sidebar-foreground: oklch(0.984 0.003 247.858);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.984 0.003 247.858);
-  --sidebar-accent: oklch(0.279 0.041 260.031);
-  --sidebar-accent-foreground: oklch(0.984 0.003 247.858);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.551 0.027 264.364);
 }
 
 @layer base {

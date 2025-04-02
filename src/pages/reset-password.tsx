@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
-import Link from "next/link";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { useForm } from "react-hook-form";
 import axios from "axios";
 import { Button } from "@/components/ui/button";
@@ -18,61 +18,87 @@ import {
 } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { FaEye, FaEyeSlash } from "react-icons/fa";
-import { signupFormType } from "@/types/signupFormType";
 
-export default function SignUp() {
+type ResetPasswordFormType = {
+  password: string;
+  confirmPassword: string;
+};
+
+export default function ResetPassword() {
   const router = useRouter();
-  const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [isSuccess, setIsSuccess] = useState(false);
   const [isPasswordVisible, setIsPasswordVisible] = useState<boolean>(false);
-  const [isEmailSent, setIsEmailSent] = useState(false);
+  const [token, setToken] = useState<string | null>(null);
 
   const {
     register,
     handleSubmit,
     formState: { errors },
-  } = useForm<signupFormType>();
+  } = useForm<ResetPasswordFormType>({
+    defaultValues: {
+      password: "",
+      confirmPassword: "",
+    },
+  });
 
-  const onSubmit = async (data: signupFormType) => {
+  useEffect(() => {
+    // Get token from URL when router is ready
+    if (router.isReady && router.query.token) {
+      setToken(router.query.token as string);
+    }
+  }, [router.isReady, router.query]);
+
+  const onSubmit = async (data: ResetPasswordFormType) => {
+    if (!token) {
+      setError("Invalid or missing reset token");
+      return;
+    }
+
     setIsLoading(true);
     setError(null);
 
     try {
-      // Sign up with Supabase through our API
-      const response = await axios.post("/api/auth/signup", {
-        name: data.name,
-        email: data.email,
+      await axios.post("/api/auth/reset-password", {
+        token,
         password: data.password,
       });
-
-      // Show email confirmation message
-      setIsEmailSent(true);
+      setIsSuccess(true);
     } catch (err) {
-      console.error("Erros signing up!", err);
+      console.error("Error during resetting password!", err);
     } finally {
       setIsLoading(false);
     }
   };
+
+  if (!router.isReady) {
+    return null; // Or a loading spinner
+  }
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4 py-12 sm:px-6 lg:px-8">
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-1">
           <CardTitle className="text-2xl font-bold text-center">
-            Create an account
+            Reset Password
           </CardTitle>
           <CardDescription className="text-center">
-            Enter your details to create your account
+            Enter your new password
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {isEmailSent ? (
-            <Alert>
-              <AlertDescription>
-                Please check your email to confirm your account. We've sent you
-                a confirmation link.
-              </AlertDescription>
-            </Alert>
+          {isSuccess ? (
+            <div className="space-y-4">
+              <Alert>
+                <AlertDescription>
+                  Your password has been successfully reset.
+                </AlertDescription>
+              </Alert>
+              <Button onClick={() => router.push("/signin")} className="w-full">
+                Sign in
+              </Button>
+            </div>
           ) : (
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
               {error && (
@@ -80,31 +106,16 @@ export default function SignUp() {
                   <AlertDescription>{error}</AlertDescription>
                 </Alert>
               )}
-              <div className="space-y-2">
-                <Label htmlFor="name">Name</Label>
-                <Input
-                  id="name"
-                  placeholder="John Doe"
-                  {...register("name", { required: "Name is required!" })}
-                />
-                {errors.name && (
-                  <p className="text-sm text-red-500">{errors.name.message}</p>
-                )}
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="name@example.com"
-                  {...register("email", { required: "Email is required" })}
-                />
-                {errors.email && (
-                  <p className="text-sm text-red-500">{errors.email.message}</p>
-                )}
-              </div>
+              {!token && (
+                <Alert variant="destructive">
+                  <AlertDescription>
+                    Invalid or missing reset token. Please request a new
+                    password reset link.
+                  </AlertDescription>
+                </Alert>
+              )}
               <div>
-                <Label htmlFor="password">Password</Label>
+                <Label htmlFor="password">New Password</Label>
                 <div className="space-y-2 relative">
                   <Input
                     id="password"
@@ -138,7 +149,7 @@ export default function SignUp() {
                 )}
               </div>
               <div className="space-y-2">
-                <Label htmlFor="confirmPassword">Confirm Password</Label>
+                <Label htmlFor="confirmPassword">Confirm New Password</Label>
                 <Input
                   id="confirmPassword"
                   type={isPasswordVisible ? "text" : "password"}
@@ -157,23 +168,29 @@ export default function SignUp() {
                   </p>
                 )}
               </div>
-              <Button type="submit" className="w-full" disabled={isLoading}>
-                {isLoading ? "Creating account..." : "Create account"}
+              <Button
+                type="submit"
+                className="w-full"
+                disabled={isLoading || !token}
+              >
+                {isLoading ? "Resetting..." : "Reset Password"}
               </Button>
             </form>
           )}
         </CardContent>
-        <CardFooter className="flex justify-center">
-          <p className="text-sm text-muted-foreground">
-            Already have an account?{" "}
-            <Link
-              href="/signin"
-              className="font-medium text-primary underline-offset-4 hover:underline"
-            >
-              Sign in
-            </Link>
-          </p>
-        </CardFooter>
+        {!isSuccess && (
+          <CardFooter className="flex justify-center">
+            <p className="text-sm text-muted-foreground">
+              Remember your password?{" "}
+              <Link
+                href="/signin"
+                className="font-medium text-primary underline-offset-4 hover:underline"
+              >
+                Sign in
+              </Link>
+            </p>
+          </CardFooter>
+        )}
       </Card>
     </div>
   );

@@ -2,11 +2,9 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/router";
+import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import * as z from "zod";
-
+import axios from "axios";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -19,55 +17,35 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-
-// Form validation schema
-const formSchema = z.object({
-  email: z.string().email({ message: "Please enter a valid email address" }),
-  password: z
-    .string()
-    .min(8, { message: "Password must be at least 8 characters" }),
-});
-
-type FormValues = z.infer<typeof formSchema>;
+import { FaEye, FaEyeSlash } from "react-icons/fa";
+import { loginFormType } from "@/types/loginformtype";
 
 export default function SignIn() {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [isPasswordVisible, setIsPasswordVisible] = useState<boolean>(false);
 
   const {
     register,
     handleSubmit,
     formState: { errors },
-  } = useForm<FormValues>({
-    resolver: zodResolver(formSchema),
-    defaultValues: {
-      email: "",
-      password: "",
-    },
-  });
+  } = useForm<loginFormType>();
 
-  const onSubmit = async (data: FormValues) => {
+  const onSubmit = async (data: loginFormType) => {
     setIsLoading(true);
     setError(null);
 
     try {
-      // Replace with your actual authentication logic
-      const response = await fetch("/api/auth/signin", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
-      });
+      // Replace with your actual authentication logic using axios
+      const response = await axios.post("/api/auth/signin", data);
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || "Failed to sign in");
-      }
+      console.log("sucesfully signed in!");
 
       // Redirect to dashboard on successful sign-in
-      router.push("/dashboard");
+      router.replace("/dashboard");
     } catch (err) {
-      setError(err.message || "An error occurred during sign in");
+      console.error("Error during signing in", err);
     } finally {
       setIsLoading(false);
     }
@@ -97,7 +75,13 @@ export default function SignIn() {
                 id="email"
                 type="email"
                 placeholder="name@example.com"
-                {...register("email")}
+                {...register("email", {
+                  required: "Email is required",
+                  pattern: {
+                    value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
+                    message: "Invalid email address",
+                  },
+                })}
               />
               {errors.email && (
                 <p className="text-sm text-red-500">{errors.email.message}</p>
@@ -113,7 +97,26 @@ export default function SignIn() {
                   Forgot password?
                 </Link>
               </div>
-              <Input id="password" type="password" {...register("password")} />
+              <div className="relative">
+                <Input
+                  id="password"
+                  type={isPasswordVisible ? "text" : "password"}
+                  {...register("password", {
+                    required: "Password is required",
+                    minLength: {
+                      value: 8,
+                      message: "Password must be at least 8 characters",
+                    },
+                  })}
+                />
+                <div onClick={() => setIsPasswordVisible(!isPasswordVisible)}>
+                  {isPasswordVisible ? (
+                    <FaEye className="absolute top-1/2 transform -translate-y-1/2 right-3 cursor-pointer" />
+                  ) : (
+                    <FaEyeSlash className="absolute top-1/2 transform -translate-y-1/2 right-3 cursor-pointer" />
+                  )}
+                </div>
+              </div>
               {errors.password && (
                 <p className="text-sm text-red-500">
                   {errors.password.message}
