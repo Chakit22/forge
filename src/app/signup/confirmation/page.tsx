@@ -44,9 +44,6 @@ export default function SignUpConfirmation() {
             <Button variant="outline" className="flex-1" asChild>
               <Link href="/signup">Try again</Link>
             </Button>
-            <Button className="flex-1" asChild>
-              <Link href="/login">Sign in</Link>
-            </Button>
           </div>
         </CardFooter>
       </Card>

@@ -3,6 +3,7 @@
 import { Button } from "@/components/ui/button";
 import { signout } from "./login/actions";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 
 export default function Home() {
   const router = useRouter();
@@ -14,7 +15,7 @@ export default function Home() {
       router.replace("/login");
     } catch (error) {
       console.error("Error logging out:", error);
-      // toast.error("Error logging out");
+      toast.error("Error logging out. Please try again later!");
     }
   };
 

@@ -15,7 +15,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Alert, AlertDescription } from "@/components/ui/alert";
 import { FaEye, FaEyeSlash } from "react-icons/fa";
 import { signup } from "../login/actions";
 import { toast } from "sonner";
@@ -23,7 +22,6 @@ import { signupformType } from "@/types/signupformType";
 
 export default function SignUp() {
   const router = useRouter();
-  const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isPasswordVisible, setIsPasswordVisible] = useState<boolean>(false);
 
@@ -35,16 +33,14 @@ export default function SignUp() {
 
   const onSubmit = async (data: signupformType) => {
     setIsLoading(true);
-    setError(null);
 
     try {
       await signup(data);
       // Redirect to confirmation page after successful signup
       router.replace("/signup/confirmation");
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err) {
       console.error("Error signing up: ", err);
-      toast.error("Error during sign up.");
+      toast.error("Error during sign up. Please try again later!");
     } finally {
       setIsLoading(false);
     }
@@ -63,11 +59,6 @@ export default function SignUp() {
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-            {error && (
-              <Alert variant="destructive">
-                <AlertDescription>{error}</AlertDescription>
-              </Alert>
-            )}
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
               <Input

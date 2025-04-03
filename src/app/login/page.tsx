@@ -19,7 +19,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { FaEye, FaEyeSlash } from "react-icons/fa";
 import type { loginFormType } from "@/types/loginFormType";
 import { login } from "./actions";
-// import { toast } from "sonner";
+import { toast } from "sonner";
 
 export default function SignIn() {
   const router = useRouter();
@@ -51,7 +51,7 @@ export default function SignIn() {
     } catch (err) {
       // setError(err.message);
       console.error("Error loggin in : ", err);
-      // toast.error("Error during signing in.");
+      toast.error("Error during signing in. Please try again later!");
     } finally {
       setIsLoading(false);
     }
