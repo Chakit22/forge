@@ -1,41 +1,50 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { signout } from "./login/actions";
 import { useRouter } from "next/navigation";
-import { toast } from "sonner";
+import { createClient } from "@/utils/supabase/client";
 
 export default function Home() {
   const router = useRouter();
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [loading, setLoading] = useState(true);
 
-  const handleLogout = async () => {
-    try {
-      await signout();
-      // toast.success("Logged out successfully");
-      router.replace("/login");
-    } catch (error) {
-      console.error("Error logging out:", error);
-      toast.error("Error logging out. Please try again later!");
+  useEffect(() => {
+    const checkAuth = async () => {
+      try {
+        const supabase = createClient();
+        const { data } = await supabase.auth.getSession();
+        setIsAuthenticated(!!data.session);
+      } catch (error) {
+        console.error("Error checking authentication:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    checkAuth();
+  }, []);
+
+  const handleStart = () => {
+    if (isAuthenticated) {
+      router.push("/dashboard");
+    } else {
+      router.push("/login");
     }
   };
 
   return (
-    <div className="min-h-screen p-8">
-      <div className="max-w-7xl mx-auto">
-        <div className="flex justify-between items-center mb-8">
-          <h1 className="text-2xl font-bold">Welcome to the Dashboard</h1>
-          <Button
-            variant="outline"
-            onClick={handleLogout}
-            className="hover:bg-red-50 hover:text-red-600"
-          >
-            Logout
-          </Button>
-        </div>
-        <div className="bg-white rounded-lg shadow p-6">
-          <p>Your main content goes here</p>
-        </div>
-      </div>
+    <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-b from-teal-500 to-teal-900">
+      <h1 className="text-7xl font-bold text-white mb-2">FORGE</h1>
+      <p className="text-xl text-white mb-10">and never forget ever again</p>
+      <Button 
+        className="bg-teal-600 hover:bg-teal-700 text-white px-8 py-3 rounded-md"
+        onClick={handleStart}
+        disabled={loading}
+      >
+        Start
+      </Button>
     </div>
   );
 }
