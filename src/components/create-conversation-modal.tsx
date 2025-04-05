@@ -47,6 +47,7 @@ export function CreateConversationModal({
     setIsSubmitting(true);
 
     try {
+      console.log("duration", duration);
       const response = await addConversation({
         learning_option: learningOption,
         duration: duration,

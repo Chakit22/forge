@@ -11,9 +11,9 @@ export default function Dashboard() {
 
   return (
     <div className="max-w-6xl mx-auto">
-      <div className="mb-8">
+      {/* <div className="mb-8">
         <UserInfo />
-      </div>
+      </div> */}
 
       <div className="flex flex-col items-center justify-center mb-12 mt-8">
         <h2 className="text-white text-4xl font-medium mb-8">

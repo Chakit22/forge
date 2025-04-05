@@ -45,6 +45,8 @@ export default function SignIn() {
       console.log("data : ", data);
       const response = await login(data);
 
+      console.log(response);
+
       if (response.success) {
         router.replace("/dashboard");
       } else {

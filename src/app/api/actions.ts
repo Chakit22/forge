@@ -20,11 +20,6 @@ export type ConversationData = {
   duration: string; // ISO duration format
   learning_option: string;
   summary?: string;
-  messages?: {
-    content: string;
-    role: "user" | "assistant";
-    timestamp: string;
-  }[];
 };
 
 export type User = {
@@ -216,6 +211,8 @@ export async function updateUserProfile(userData: Partial<User>) {
  */
 export async function addConversation(conversationData: ConversationData) {
   const supabase = await createClient();
+
+  console.log("conversationData", conversationData);
   
   // Get current user
   const { success, user, error } = await getCurrentUser();
@@ -238,26 +235,6 @@ export async function addConversation(conversationData: ConversationData) {
   
   if (conversationError) {
     return { success: false, error: conversationError.message };
-  }
-  
-  // If there are messages, store them in a separate messages table
-  // This assumes you have a messages table related to conversations
-  if (conversationData.messages && conversationData.messages.length > 0) {
-    const messagesWithConvoId = conversationData.messages.map(message => ({
-      conversation_id: data.id,
-      content: message.content,
-      role: message.role,
-      timestamp: message.timestamp
-    }));
-    
-    const { error: messagesError } = await supabase
-      .from("messages")
-      .insert(messagesWithConvoId);
-    
-    if (messagesError) {
-      console.error("Error storing messages:", messagesError);
-      // We might still consider the operation successful even if message storage fails
-    }
   }
   
   return { success: true, conversation: data };
@@ -341,27 +318,9 @@ export async function getConversationById(conversationId: number) {
     return { success: false, error: convoError.message };
   }
   
-  // Get the messages for this conversation
-  const { data: messages, error: messagesError } = await supabase
-    .from("messages")
-    .select("*")
-    .eq("conversation_id", conversationId)
-    .order("timestamp", { ascending: true });
-  
-  if (messagesError) {
-    // We still return the conversation even if we can't get messages
-    console.error("Error fetching messages:", messagesError);
-    return { 
-      success: true, 
-      conversation,
-      messages: []
-    };
-  }
-  
   return { 
     success: true, 
-    conversation,
-    messages
+    conversation
   };
 }
 

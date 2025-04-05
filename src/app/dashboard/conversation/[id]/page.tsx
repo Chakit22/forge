@@ -62,8 +62,13 @@ export default function ConversationPage({
   useEffect(() => {
     if (!conversation?.duration) return;
 
+    console.log("Raw duration from database:", conversation.duration);
+    console.log("Duration type:", typeof conversation.duration);
+
     // Parse ISO duration (PT1H30M format) to seconds
     const durationSeconds = parseDurationToSeconds(conversation.duration);
+    console.log("Parsed duration in seconds:", durationSeconds);
+
     setTimeLeft(durationSeconds);
 
     const timer = setInterval(() => {
@@ -99,31 +104,19 @@ export default function ConversationPage({
       if (response.success && response.conversation) {
         setConversation(response.conversation);
 
-        // Convert API messages to UI messages
-        if (response.messages && response.messages.length > 0) {
-          const uiMessages = response.messages.map((msg) => ({
-            id: msg.id,
-            role: msg.role,
-            content: msg.content,
-            timestamp: new Date(msg.timestamp),
-            status: "sent" as const,
-          }));
-          setMessages(uiMessages);
-        } else {
-          // Add a welcome message if there are no messages
-          setMessages([
-            {
-              role: "assistant",
-              content: `Welcome to your ${getLearningOptionDisplay(
-                response.conversation.learning_option
-              )} session! Let's learn about "${getTopicFromSummary(
-                response.conversation.summary
-              )}"`,
-              timestamp: new Date(),
-              status: "sent",
-            },
-          ]);
-        }
+        // Always start with a welcome message
+        setMessages([
+          {
+            role: "assistant",
+            content: `Welcome to your ${getLearningOptionDisplay(
+              response.conversation.learning_option
+            )} session! Let's learn about "${getTopicFromSummary(
+              response.conversation.summary
+            )}"`,
+            timestamp: new Date(),
+            status: "sent",
+          },
+        ]);
       } else {
         setError(response.error || "Failed to fetch conversation");
         setConversation(null);
@@ -140,26 +133,30 @@ export default function ConversationPage({
   };
 
   const handleSendMessage = () => {
-    if (!inputMessage.trim()) return;
+    if (!inputMessage.trim() || !conversation) return;
 
     // Add message to UI immediately
     const newMessage: UIMessage = {
       role: "user",
       content: inputMessage,
       timestamp: new Date(),
-      status: "sending",
+      status: "sent",
     };
 
     setMessages((prev) => [...prev, newMessage]);
+    const sentMessage = inputMessage; // Store message before clearing input
     setInputMessage("");
 
-    // Simulate AI response (in a real app, you would call an API)
+    // Simulate AI response (in a real app, you would call an AI API)
     setTimeout(() => {
+      const aiContent = `I'm your AI learning assistant for ${getLearningOptionDisplay(
+        conversation.learning_option || ""
+      )}. Here's a response to your question about "${sentMessage}".`;
+
+      // Add AI response to UI
       const aiResponse: UIMessage = {
         role: "assistant",
-        content: `I'm your AI learning assistant for ${getLearningOptionDisplay(
-          conversation?.learning_option || ""
-        )}. Here's a response to your question about "${inputMessage}".`,
+        content: aiContent,
         timestamp: new Date(),
         status: "sent",
       };
@@ -190,21 +187,76 @@ export default function ConversationPage({
     }
   };
 
-  // Parse ISO duration format (PT1H30M) to seconds
-  const parseDurationToSeconds = (isoDuration: string): number => {
+  // Parse duration string to seconds - handles both ISO format and PostgreSQL interval
+  const parseDurationToSeconds = (durationStr: string): number => {
     try {
-      const hourMatch = isoDuration.match(/(\d+)H/);
-      const minuteMatch = isoDuration.match(/(\d+)M/);
-      const secondMatch = isoDuration.match(/(\d+)S/);
+      console.log("Parsing duration:", durationStr);
 
-      const hours = hourMatch ? parseInt(hourMatch[1]) : 0;
-      const minutes = minuteMatch ? parseInt(minuteMatch[1]) : 0;
-      const seconds = secondMatch ? parseInt(secondMatch[1]) : 0;
+      // Check if it's an ISO format (PT1H30M)
+      if (durationStr.startsWith("PT")) {
+        const hourMatch = durationStr.match(/(\d+)H/);
+        const minuteMatch = durationStr.match(/(\d+)M/);
+        const secondMatch = durationStr.match(/(\d+)S/);
 
-      return hours * 3600 + minutes * 60 + seconds;
+        const hours = hourMatch ? parseInt(hourMatch[1]) : 0;
+        const minutes = minuteMatch ? parseInt(minuteMatch[1]) : 0;
+        const seconds = secondMatch ? parseInt(secondMatch[1]) : 0;
+
+        console.log("ISO format parsed:", { hours, minutes, seconds });
+        return hours * 3600 + minutes * 60 + seconds;
+      }
+
+      // Try handling PostgreSQL interval format (could be "1 hour 30 minutes" or "01:30:00")
+      // Check for HH:MM:SS format
+      const timeFormatMatch = durationStr.match(/(\d+):(\d+):(\d+)/);
+      if (timeFormatMatch) {
+        const hours = parseInt(timeFormatMatch[1]);
+        const minutes = parseInt(timeFormatMatch[2]);
+        const seconds = parseInt(timeFormatMatch[3]);
+
+        console.log("Time format parsed:", { hours, minutes, seconds });
+        return hours * 3600 + minutes * 60 + seconds;
+      }
+
+      // Check for text format like "1 hour 30 minutes"
+      let totalSeconds = 0;
+
+      // Extract hours
+      const hoursMatch = durationStr.match(/(\d+)\s*hour/i);
+      if (hoursMatch) {
+        totalSeconds += parseInt(hoursMatch[1]) * 3600;
+      }
+
+      // Extract minutes
+      const minutesMatch = durationStr.match(/(\d+)\s*min/i);
+      if (minutesMatch) {
+        totalSeconds += parseInt(minutesMatch[1]) * 60;
+      }
+
+      // Extract seconds
+      const secondsMatch = durationStr.match(/(\d+)\s*sec/i);
+      if (secondsMatch) {
+        totalSeconds += parseInt(secondsMatch[1]);
+      }
+
+      // If we found any time units
+      if (totalSeconds > 0) {
+        console.log("Text format parsed, total seconds:", totalSeconds);
+        return totalSeconds;
+      }
+
+      // Last resort: try to parse as just a number of minutes
+      const justMinutes = parseInt(durationStr);
+      if (!isNaN(justMinutes)) {
+        console.log("Parsed as just minutes:", justMinutes);
+        return justMinutes * 60;
+      }
+
+      console.error("Could not parse duration:", durationStr);
+      return 1800; // Default to 30 minutes (1800 seconds) if parsing fails
     } catch (e) {
       console.error("Error parsing duration:", e);
-      return 0;
+      return 1800; // Default to 30 minutes
     }
   };
 
@@ -220,26 +272,34 @@ export default function ConversationPage({
     )}:${String(secs).padStart(2, "0")}`;
   };
 
-  // Format the ISO duration to a human readable format
-  const formatDuration = (isoDuration: string) => {
+  // Format duration string to a human readable format
+  const formatDuration = (durationStr: string) => {
     try {
-      const hourMatch = isoDuration.match(/(\d+)H/);
-      const minuteMatch = isoDuration.match(/(\d+)M/);
+      // If it's already in a readable format like "1 hour 30 minutes", return it directly
+      if (/\d+\s*hour|\d+\s*min/i.test(durationStr)) {
+        return durationStr;
+      }
 
-      const hours = hourMatch ? parseInt(hourMatch[1]) : 0;
-      const minutes = minuteMatch ? parseInt(minuteMatch[1]) : 0;
+      // For ISO format or PostgreSQL interval, convert to seconds first then format
+      const seconds = parseDurationToSeconds(durationStr);
+
+      const hours = Math.floor(seconds / 3600);
+      const minutes = Math.floor((seconds % 3600) / 60);
 
       if (hours > 0 && minutes > 0) {
-        return `${hours} hours ${minutes} minutes`;
+        return `${hours} hour${hours > 1 ? "s" : ""} ${minutes} minute${
+          minutes > 1 ? "s" : ""
+        }`;
       } else if (hours > 0) {
-        return `${hours} hours`;
+        return `${hours} hour${hours > 1 ? "s" : ""}`;
       } else if (minutes > 0) {
-        return `${minutes} minutes`;
+        return `${minutes} minute${minutes > 1 ? "s" : ""}`;
       } else {
-        return "Unknown duration";
+        return "Less than a minute";
       }
     } catch (e) {
-      return isoDuration || "Unknown";
+      console.error("Error formatting duration:", e);
+      return durationStr || "Unknown duration";
     }
   };
 
