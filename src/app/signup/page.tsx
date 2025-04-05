@@ -1,29 +1,30 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { FaEye, FaEyeSlash } from "react-icons/fa";
-import { signup } from "../login/actions";
 import { toast } from "sonner";
+import { signup } from "@/app/api/actions";
 import { signupformType } from "@/types/signupformType";
+// import Image from "next/image";
+import { FaEye, FaEyeSlash } from "react-icons/fa";
+import { useUser } from "@/context/user-context";
 
 export default function SignUp() {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
-  const [isPasswordVisible, setIsPasswordVisible] = useState<boolean>(false);
+  const [showPassword, setShowPassword] = useState<boolean>(true);
+  const { user } = useUser();
+
+  useEffect(() => {
+    if (user) {
+      router.replace("/dashboard");
+    }
+  }, [user, router]);
 
   const {
     register,
@@ -35,9 +36,17 @@ export default function SignUp() {
     setIsLoading(true);
 
     try {
-      await signup(data);
-      // Redirect to confirmation page after successful signup
-      router.replace("/signup/confirmation");
+      const response = await signup(data);
+
+      if (response.success) {
+        toast.success("Account created successfully!");
+        // Redirect to dashboard after successful signup
+        router.replace(`/signup/confirmation?email=${data.email}`);
+      } else {
+        toast.error(
+          response.error || "Error during sign up. Please try again later!"
+        );
+      }
     } catch (err) {
       console.error("Error signing up: ", err);
       toast.error("Error during sign up. Please try again later!");
@@ -47,24 +56,59 @@ export default function SignUp() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4 py-12 sm:px-6 lg:px-8">
-      <Card className="w-full max-w-md">
-        <CardHeader className="space-y-1">
-          <CardTitle className="text-2xl font-bold text-center">
-            Create an account
-          </CardTitle>
-          <CardDescription className="text-center">
-            Enter your email and password to create your account
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
+    <div className="flex min-h-screen bg-teal-800">
+      <div className="flex w-full flex-col md:flex-row">
+        {/* Left panel */}
+        <div className="w-full p-8 md:w-1/2 md:p-12">
+          <div className="mb-6 flex items-center">
+            <div className="mr-2 flex h-8 w-8 items-center justify-center rounded-full bg-white">
+              <svg
+                viewBox="0 0 24 24"
+                className="h-5 w-5 text-teal-800"
+                fill="currentColor"
+              >
+                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 16c-3.31 0-6-2.69-6-6s2.69-6 6-6 6 2.69 6 6-2.69 6-6 6z" />
+                <path d="M12 8v4l3 3 1-1-2.5-2.5V8z" />
+              </svg>
+            </div>
+            <span className="text-xl font-bold text-white">FORGE</span>
+          </div>
+
+          <div className="mb-12">
+            <h1 className="mb-2 text-3xl font-bold text-white">
+              Let&apos;s get started
+            </h1>
+            <p className="text-white/80">
+              Create an account and start remembering now!
+            </p>
+          </div>
+
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+            <div>
+              <Label htmlFor="name" className="mb-2 block text-white">
+                Name
+              </Label>
+              <Input
+                id="name"
+                type="text"
+                className="h-12 bg-white/10 text-white placeholder:text-white/50 focus:border-white focus:ring-white"
+                {...register("name", { required: "Name is required" })}
+              />
+              {errors.name && (
+                <p className="mt-1 text-sm text-red-300">
+                  {errors.name.message}
+                </p>
+              )}
+            </div>
+
+            <div>
+              <Label htmlFor="email" className="mb-2 block text-white">
+                Email
+              </Label>
               <Input
                 id="email"
                 type="email"
-                placeholder="name@example.com"
+                className="h-12 bg-white/10 text-white placeholder:text-white/50 focus:border-white focus:ring-white"
                 {...register("email", {
                   required: "Email is required",
                   pattern: {
@@ -74,60 +118,134 @@ export default function SignUp() {
                 })}
               />
               {errors.email && (
-                <p className="text-sm text-red-500">{errors.email.message}</p>
+                <p className="mt-1 text-sm text-red-300">
+                  {errors.email.message}
+                </p>
               )}
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
+
+            <div>
+              <Label htmlFor="phone_number" className="mb-2 block text-white">
+                Phone Number (Optional)
+              </Label>
+              <Input
+                id="phone_number"
+                type="tel"
+                className="h-12 bg-white/10 text-white placeholder:text-white/50 focus:border-white focus:ring-white"
+                placeholder="+1 (123) 456-7890"
+                {...register("phone_number", {
+                  pattern: {
+                    value:
+                      /^[+]?[(]?[0-9]{1,4}[)]?[-\s.]?[0-9]{1,4}[-\s.]?[0-9]{1,9}$/,
+                    message: "Invalid phone number format",
+                  },
+                })}
+              />
+              {errors.phone_number && (
+                <p className="mt-1 text-sm text-red-300">
+                  {errors.phone_number.message}
+                </p>
+              )}
+            </div>
+
+            <div>
+              <Label htmlFor="password" className="mb-2 block text-white">
+                Password
+              </Label>
               <div className="relative">
                 <Input
                   id="password"
-                  type={isPasswordVisible ? "text" : "password"}
+                  type={showPassword ? "password" : "text"}
+                  className="h-12 bg-white/10 text-white placeholder:text-white/50 focus:border-white focus:ring-white"
                   {...register("password", {
                     required: "Password is required",
                     minLength: {
                       value: 8,
                       message: "Password must be at least 8 characters",
                     },
-                    pattern: {
-                      value:
-                        /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]+$/,
-                      message:
-                        "Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character",
-                    },
                   })}
                 />
-                <div onClick={() => setIsPasswordVisible(!isPasswordVisible)}>
-                  {isPasswordVisible ? (
-                    <FaEye className="absolute top-1/2 transform -translate-y-1/2 right-3 cursor-pointer" />
+                <div onClick={() => setShowPassword(!showPassword)}>
+                  {showPassword ? (
+                    <FaEye className="absolute top-1/2 transform -translate-y-1/2 right-3" />
                   ) : (
-                    <FaEyeSlash className="absolute top-1/2 transform -translate-y-1/2 right-3 cursor-pointer" />
+                    <FaEyeSlash className="absolute top-1/2 transform -translate-y-1/2 right-3" />
                   )}
                 </div>
               </div>
+
               {errors.password && (
-                <p className="text-sm text-red-500">
+                <p className="mt-1 text-sm text-red-300">
                   {errors.password.message}
                 </p>
               )}
             </div>
-            <Button type="submit" className="w-full" disabled={isLoading}>
-              {isLoading ? "Creating account..." : "Create account"}
+
+            <Button
+              type="submit"
+              className="h-12 w-full bg-white text-teal-800 hover:bg-white/90"
+              disabled={isLoading}
+            >
+              {isLoading ? "Signing Up..." : "Sign Up"}
             </Button>
           </form>
-        </CardContent>
-        <CardFooter className="flex justify-center">
-          <p className="text-sm text-muted-foreground">
-            Already have an account?{" "}
-            <Link
-              href="/login"
-              className="font-medium text-primary underline-offset-4 hover:underline"
-            >
-              Sign in
-            </Link>
-          </p>
-        </CardFooter>
-      </Card>
+
+          <div className="mt-6 text-center">
+            <p className="text-white/80">
+              Already have an account?{" "}
+              <Link
+                href="/login"
+                className="font-medium text-white hover:underline"
+              >
+                Login
+              </Link>{" "}
+              now!
+            </p>
+          </div>
+        </div>
+
+        {/* Right panel - AI assistant preview */}
+        <div className="hidden w-1/2 bg-teal-700 p-12 md:block">
+          <div className="mb-8 text-3xl font-bold text-white">
+            Your personalized AI Learning Assistant!
+          </div>
+
+          <div className="rounded-lg bg-teal-600/50 p-6">
+            <div className="mb-4 flex items-center">
+              <div className="mr-2 flex h-6 w-6 items-center justify-center rounded-full bg-white/20">
+                <svg
+                  viewBox="0 0 24 24"
+                  className="h-4 w-4 text-white"
+                  fill="currentColor"
+                >
+                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 16c-3.31 0-6-2.69-6-6s2.69-6 6-6 6 2.69 6 6-2.69 6-6 6z" />
+                  <path d="M12 8v4l3 3 1-1-2.5-2.5V8z" />
+                </svg>
+              </div>
+              <span className="text-sm font-medium text-white">FORGE</span>
+              <div className="ml-auto text-xs text-white/70">02:30:00</div>
+              <div className="ml-2 h-6 w-6 rounded-full bg-white"></div>
+            </div>
+
+            <div className="text-center">
+              <p className="mb-4 text-white">
+                What would you like to learn today?
+              </p>
+              <div className="relative mx-auto w-full max-w-xs rounded bg-teal-500/50 px-4 py-2">
+                <p className="text-white/70">Enter a topic</p>
+                <div className="absolute right-2 top-1/2 flex -translate-y-1/2 space-x-1">
+                  <div className="flex h-5 w-5 items-center justify-center rounded-full bg-white/20">
+                    <span className="text-xs text-white">+</span>
+                  </div>
+                  <div className="flex h-5 w-5 items-center justify-center rounded-full bg-white/20">
+                    <span className="text-xs text-white">-</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
