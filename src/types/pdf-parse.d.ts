@@ -8,9 +8,9 @@ declare module 'pdf-parse' {
   }
 
   interface PDFOptions {
-    pagerender?: Function;
+    pagerender?: (pageData: { getTextContent: () => Promise<unknown> }) => Promise<string>;
     max?: number;
-    [key: string]: any;
+    [key: string]: unknown;
   }
 
   function parse(buffer: Buffer, options?: PDFOptions): Promise<PDFData>;
@@ -19,7 +19,6 @@ declare module 'pdf-parse' {
 }
 
 declare module 'pdf-parse/lib/pdf-parse.js' {
-  import parse = require('pdf-parse');
+  import parse from "pdf-parse";
   export = parse;
-  export default parse;
 } 

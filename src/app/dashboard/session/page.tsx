@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Message } from "@/app/api/memoagent";
@@ -287,9 +288,11 @@ export default function Session() {
           {formatTime(timeLeft)}
         </div>
         <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center overflow-hidden">
-          <img
+          <Image
             src="https://i.pravatar.cc/150?img=25"
             alt="Profile"
+            width={40}
+            height={40}
             className="w-full h-full object-cover"
           />
         </div>

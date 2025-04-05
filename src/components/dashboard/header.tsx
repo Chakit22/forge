@@ -2,21 +2,21 @@
 
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { useUser } from "@/context/user-context";
-import { LogOutIcon } from "lucide-react";
+// import { useUser } from "@/context/user-context";
+// import { LogOutIcon } from "lucide-react";
 import { signout } from "@/app/api/actions";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { CiLocationOn, CiLogout } from "react-icons/ci";
+import { CiLogout } from "react-icons/ci";
 
 interface HeaderProps {
   toggleSidebar?: () => void;
   className?: string;
 }
 
-export function Header({ toggleSidebar, className }: HeaderProps) {
+export function Header({ toggleSidebar }: HeaderProps) {
   const [currentTime, setCurrentTime] = useState("00:00:00");
-  const { user } = useUser();
+  // const { user } = useUser();
   const router = useRouter();
   // Update time every second
   useEffect(() => {

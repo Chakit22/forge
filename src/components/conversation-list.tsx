@@ -90,6 +90,7 @@ export function ConversationList() {
         return "Unknown duration";
       }
     } catch (e) {
+      console.error("Error formatting duration:", e);
       return isoDuration || "Unknown";
     }
   };
@@ -105,6 +106,7 @@ export function ConversationList() {
         minute: "2-digit",
       });
     } catch (e) {
+      console.error("Error formatting date:", e);
       return isoDate || "Unknown date";
     }
   };

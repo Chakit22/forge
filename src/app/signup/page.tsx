@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { signup } from "@/app/api/actions";
 import { signupformType } from "@/types/signupformType";
-import Image from "next/image";
+// import Image from "next/image";
 import { FaEye, FaEyeSlash } from "react-icons/fa";
 import { useUser } from "@/context/user-context";
 
@@ -76,7 +76,7 @@ export default function SignUp() {
 
           <div className="mb-12">
             <h1 className="mb-2 text-3xl font-bold text-white">
-              Let's get started
+              Let&apos;s get started
             </h1>
             <p className="text-white/80">
               Create an account and start remembering now!

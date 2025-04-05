@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { UserInfo } from "@/components/user-info";
+// import { UserInfo } from "@/components/user-info";
 import { ConversationList } from "@/components/conversation-list";
 import { Button } from "@/components/ui/button";
 import { CreateConversationModal } from "@/components/create-conversation-modal";

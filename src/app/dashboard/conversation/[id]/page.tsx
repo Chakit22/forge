@@ -36,14 +36,14 @@ type FileAttachment = {
   content: string; // base64 encoded content
 };
 
-// Local interface for messages
-interface APIMessage {
-  id: number;
-  conversation_id: number;
-  role: string;
-  content: string;
-  timestamp: string;
-}
+// // Local interface for messages
+// interface APIMessage {
+//   id: number;
+//   conversation_id: number;
+//   role: string;
+//   content: string;
+//   timestamp: string;
+// }
 
 // Interface for UI messages (including local ones not yet saved)
 interface UIMessage {
@@ -77,50 +77,13 @@ export default function ConversationPage({
   // Maximum file size in bytes (10MB)
   const MAX_FILE_SIZE = 10 * 1024 * 1024;
 
-  // Fetch conversation data when the component mounts
-  useEffect(() => {
-    if (unwrappedParams.id) {
-      fetchConversation(parseInt(unwrappedParams.id));
-    }
-  }, [unwrappedParams.id]);
+  const handleSessionEnd = React.useCallback(() => {
+    // In a real app, you would save the session data to your API
+    toast.success("Session completed!");
+    router.push("/dashboard");
+  }, [router]);
 
-  // Set up the timer when duration is available
-  useEffect(() => {
-    if (!conversation?.duration) return;
-
-    console.log("Raw duration from database:", conversation.duration);
-    console.log("Duration type:", typeof conversation.duration);
-
-    // Parse ISO duration (PT1H30M format) to seconds
-    const durationSeconds = parseDurationToSeconds(conversation.duration);
-    console.log("Parsed duration in seconds:", durationSeconds);
-
-    setTimeLeft(durationSeconds);
-
-    const timer = setInterval(() => {
-      setTimeLeft((prev) => {
-        if (prev <= 1) {
-          clearInterval(timer);
-          handleSessionEnd();
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-
-    return () => clearInterval(timer);
-  }, [conversation]);
-
-  // Scroll to bottom when messages change
-  useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
-
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  };
-
-  const fetchConversation = async (id: number) => {
+  const fetchConversation = React.useCallback(async (id: number) => {
     setIsLoading(true);
     setError(null);
 
@@ -156,6 +119,49 @@ export default function ConversationPage({
     } finally {
       setIsLoading(false);
     }
+  }, []);
+
+  // Fetch conversation data when the component mounts
+  useEffect(() => {
+    if (unwrappedParams.id) {
+      fetchConversation(parseInt(unwrappedParams.id));
+    }
+  }, [unwrappedParams.id, fetchConversation]);
+
+  // Set up the timer when duration is available
+  useEffect(() => {
+    if (!conversation?.duration) return;
+
+    console.log("Raw duration from database:", conversation.duration);
+    console.log("Duration type:", typeof conversation.duration);
+
+    // Parse ISO duration (PT1H30M format) to seconds
+    const durationSeconds = parseDurationToSeconds(conversation.duration);
+    console.log("Parsed duration in seconds:", durationSeconds);
+
+    setTimeLeft(durationSeconds);
+
+    const timer = setInterval(() => {
+      setTimeLeft((prev) => {
+        if (prev <= 1) {
+          clearInterval(timer);
+          handleSessionEnd();
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [conversation, handleSessionEnd]);
+
+  // Scroll to bottom when messages change
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
   const handleSendMessage = async () => {
@@ -284,12 +290,6 @@ export default function ConversationPage({
     }
   };
 
-  const handleSessionEnd = () => {
-    // In a real app, you would save the session data to your API
-    toast.success("Session completed!");
-    router.push("/dashboard");
-  };
-
   const handleDeleteSession = async () => {
     if (!conversation) return;
 
@@ -392,36 +392,36 @@ export default function ConversationPage({
     )}:${String(secs).padStart(2, "0")}`;
   };
 
-  // Format duration string to a human readable format
-  const formatDuration = (durationStr: string) => {
-    try {
-      // If it's already in a readable format like "1 hour 30 minutes", return it directly
-      if (/\d+\s*hour|\d+\s*min/i.test(durationStr)) {
-        return durationStr;
-      }
+  // // Format duration string to a human readable format
+  // const formatDuration = (durationStr: string) => {
+  //   try {
+  //     // If it's already in a readable format like "1 hour 30 minutes", return it directly
+  //     if (/\d+\s*hour|\d+\s*min/i.test(durationStr)) {
+  //       return durationStr;
+  //     }
 
-      // For ISO format or PostgreSQL interval, convert to seconds first then format
-      const seconds = parseDurationToSeconds(durationStr);
+  //     // For ISO format or PostgreSQL interval, convert to seconds first then format
+  //     const seconds = parseDurationToSeconds(durationStr);
 
-      const hours = Math.floor(seconds / 3600);
-      const minutes = Math.floor((seconds % 3600) / 60);
+  //     const hours = Math.floor(seconds / 3600);
+  //     const minutes = Math.floor((seconds % 3600) / 60);
 
-      if (hours > 0 && minutes > 0) {
-        return `${hours} hour${hours > 1 ? "s" : ""} ${minutes} minute${
-          minutes > 1 ? "s" : ""
-        }`;
-      } else if (hours > 0) {
-        return `${hours} hour${hours > 1 ? "s" : ""}`;
-      } else if (minutes > 0) {
-        return `${minutes} minute${minutes > 1 ? "s" : ""}`;
-      } else {
-        return "Less than a minute";
-      }
-    } catch (e) {
-      console.error("Error formatting duration:", e);
-      return durationStr || "Unknown duration";
-    }
-  };
+  //     if (hours > 0 && minutes > 0) {
+  //       return `${hours} hour${hours > 1 ? "s" : ""} ${minutes} minute${
+  //         minutes > 1 ? "s" : ""
+  //       }`;
+  //     } else if (hours > 0) {
+  //       return `${hours} hour${hours > 1 ? "s" : ""}`;
+  //     } else if (minutes > 0) {
+  //       return `${minutes} minute${minutes > 1 ? "s" : ""}`;
+  //     } else {
+  //       return "Less than a minute";
+  //     }
+  //   } catch (e) {
+  //     console.error("Error formatting duration:", e);
+  //     return durationStr || "Unknown duration";
+  //   }
+  // };
 
   const getLearningOptionDisplay = (option: string) => {
     const options: Record<string, string> = {

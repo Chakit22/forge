@@ -7,7 +7,7 @@ import {
   useState,
   ReactNode,
 } from "react";
-import { createClient } from "@/utils/supabase/client";
+// import { createClient } from "@/utils/supabase/client";
 import { getCurrentUser } from "@/app/api/actions";
 
 // Define the user type

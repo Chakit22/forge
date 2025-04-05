@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+// import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -14,11 +14,11 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { FaEnvelope } from "react-icons/fa";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useUser } from "@/context/user-context";
-import { useEffect } from "react";
+import { useEffect, Suspense } from "react";
 import { resendConfirmationEmail } from "@/app/api/actions";
 import { toast } from "sonner";
 
-export default function SignUpConfirmation() {
+function ConfirmationContent() {
   const router = useRouter();
   const { user } = useUser();
   const searchParams = useSearchParams();
@@ -52,7 +52,7 @@ export default function SignUpConfirmation() {
             Check your email
           </CardTitle>
           <CardDescription className="text-center">
-            We've sent you a confirmation link to verify your account
+            We have sent you a confirmation link to verify your account
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -67,7 +67,7 @@ export default function SignUpConfirmation() {
         </CardContent>
         <CardFooter className="flex flex-col gap-4">
           <p className="text-sm text-muted-foreground text-center">
-            Didn't receive the email? Check your spam folder or try signing up
+            Did not receive the email? Check your spam folder or try signing up
             again.
           </p>
           <div className="flex gap-4 w-full">
@@ -82,5 +82,19 @@ export default function SignUpConfirmation() {
         </CardFooter>
       </Card>
     </div>
+  );
+}
+
+export default function SignUpConfirmation() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex min-h-screen items-center justify-center bg-teal-800">
+          <p className="text-white">Loading...</p>
+        </div>
+      }
+    >
+      <ConfirmationContent />
+    </Suspense>
   );
 }

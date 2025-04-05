@@ -156,7 +156,7 @@ export default function SignIn() {
 
           <div className="mt-6 text-center">
             <p className="text-white/80">
-              Don't have an account yet?{" "}
+              Don&apos;t have an account yet?{" "}
               <Link
                 href="/signup"
                 className="font-medium text-white hover:underline"
