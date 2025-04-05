@@ -14,8 +14,8 @@ export default function Home() {
     const checkAuth = async () => {
       try {
         const supabase = createClient();
-        const { data } = await supabase.auth.getSession();
-        setIsAuthenticated(!!data.session);
+        const { data } = await supabase.auth.getUser();
+        setIsAuthenticated(!!data.user);
       } catch (error) {
         console.error("Error checking authentication:", error);
       } finally {
@@ -30,7 +30,7 @@ export default function Home() {
     if (isAuthenticated) {
       router.push("/dashboard");
     } else {
-      router.push("/login");
+      router.replace("/login");
     }
   };
 
@@ -38,7 +38,7 @@ export default function Home() {
     <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-b from-teal-500 to-teal-900">
       <h1 className="text-7xl font-bold text-white mb-2">FORGE</h1>
       <p className="text-xl text-white mb-10">and never forget ever again</p>
-      <Button 
+      <Button
         className="bg-teal-600 hover:bg-teal-700 text-white px-8 py-3 rounded-md"
         onClick={handleStart}
         disabled={loading}

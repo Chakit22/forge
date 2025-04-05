@@ -12,10 +12,40 @@ import {
 } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { FaEnvelope } from "react-icons/fa";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useUser } from "@/context/user-context";
+import { useEffect } from "react";
+import { resendConfirmationEmail } from "@/app/api/actions";
+import { toast } from "sonner";
 
 export default function SignUpConfirmation() {
+  const router = useRouter();
+  const { user } = useUser();
+  const searchParams = useSearchParams();
+  const email = searchParams.get("email");
+
+  useEffect(() => {
+    if (user) {
+      router.replace("/dashboard");
+    }
+  }, [user, router]);
+
+  const handleResendEmail = async () => {
+    if (!email) {
+      toast.error("No email provided");
+      return;
+    }
+
+    const response = await resendConfirmationEmail(email);
+    if (response.success) {
+      toast.success("Email sent successfully");
+    } else {
+      toast.error("Failed to send email. Please try again later.");
+    }
+  };
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4 py-12 sm:px-6 lg:px-8">
+    <div className="flex min-h-screen items-center justify-center bg-teal-800 px-4 py-12 sm:px-6 lg:px-8">
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-1">
           <CardTitle className="text-2xl font-bold text-center">
@@ -41,8 +71,12 @@ export default function SignUpConfirmation() {
             again.
           </p>
           <div className="flex gap-4 w-full">
-            <Button variant="outline" className="flex-1" asChild>
-              <Link href="/signup">Try again</Link>
+            <Button
+              variant="outline"
+              className="flex-1"
+              onClick={handleResendEmail}
+            >
+              Try again
             </Button>
           </div>
         </CardFooter>
