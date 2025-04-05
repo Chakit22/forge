@@ -10,7 +10,6 @@
   },
   "dependencies": {
     "@radix-ui/react-dialog": "^1.1.6",
-    "@radix-ui/react-dialog": "^1.1.6",
     "@radix-ui/react-label": "^2.1.2",
     "@radix-ui/react-scroll-area": "^1.2.3",
     "@radix-ui/react-select": "^2.1.6",
@@ -53,7 +52,6 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "15.2.4",
-    "supabase": "^2.20.5",
     "supabase": "^2.20.5",
     "tailwindcss": "^4",
     "typescript": "^5"

@@ -15,9 +15,29 @@ import {
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import type { Conversation } from "@/app/api/actions";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import { Message } from "@/app/api/memoagent";
+
+// Define types for ReactMarkdown components
+type CodeProps = React.DetailedHTMLProps<
+  React.HTMLAttributes<HTMLElement>,
+  HTMLElement
+> & {
+  inline?: boolean;
+};
+
+// Define file attachment type
+type FileAttachment = {
+  id: string;
+  name: string;
+  type: string;
+  size: number;
+  content: string; // base64 encoded content
+};
 
 // Local interface for messages
-interface Message {
+interface APIMessage {
   id: number;
   conversation_id: number;
   role: string;
@@ -49,7 +69,13 @@ export default function ConversationPage({
   const [timeLeft, setTimeLeft] = useState(0);
   const [isEndSessionDialogOpen, setIsEndSessionDialogOpen] = useState(false);
   const [isFullFocus, setIsFullFocus] = useState(false);
+  const [isTyping, setIsTyping] = useState(false);
+  const [attachments, setAttachments] = useState<FileAttachment[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Maximum file size in bytes (10MB)
+  const MAX_FILE_SIZE = 10 * 1024 * 1024;
 
   // Fetch conversation data when the component mounts
   useEffect(() => {
@@ -132,36 +158,130 @@ export default function ConversationPage({
     }
   };
 
-  const handleSendMessage = () => {
-    if (!inputMessage.trim() || !conversation) return;
+  const handleSendMessage = async () => {
+    if (!inputMessage.trim() && attachments.length === 0) return;
+    if (!conversation) return;
 
-    // Add message to UI immediately
-    const newMessage: UIMessage = {
+    // Add user message
+    const userMessage: UIMessage = {
       role: "user",
-      content: inputMessage,
+      content: inputMessage.trim(),
       timestamp: new Date(),
-      status: "sent",
+      status: "sending",
     };
 
-    setMessages((prev) => [...prev, newMessage]);
-    const sentMessage = inputMessage; // Store message before clearing input
+    // Create a more detailed message for the UI if there are attachments
+    const displayContent =
+      attachments.length > 0
+        ? `${userMessage.content} [Attached ${
+            attachments.length
+          } file(s): ${attachments.map((a) => a.name).join(", ")}]`
+        : userMessage.content;
+
+    // Add message to UI
+    setMessages((prev) => [
+      ...prev,
+      {
+        ...userMessage,
+        content: displayContent,
+      },
+    ]);
+
     setInputMessage("");
+    setIsTyping(true);
 
-    // Simulate AI response (in a real app, you would call an AI API)
-    setTimeout(() => {
-      const aiContent = `I'm your AI learning assistant for ${getLearningOptionDisplay(
-        conversation.learning_option || ""
-      )}. Here's a response to your question about "${sentMessage}".`;
+    try {
+      // Prepare attachment data for API
+      const attachmentData = attachments.map((a) => ({
+        name: a.name,
+        type: a.type,
+        content: a.content,
+      }));
 
-      // Add AI response to UI
-      const aiResponse: UIMessage = {
+      console.log(`Sending message with ${attachmentData.length} attachments`);
+      if (attachmentData.length > 0) {
+        console.log(
+          "Attachment details:",
+          attachmentData.map((a) => ({
+            name: a.name,
+            type: a.type,
+            contentLength: a.content.length,
+          }))
+        );
+      }
+
+      // Convert UIMessages to API Messages format
+      const apiMessages: Message[] = messages.map((msg) => ({
+        role: msg.role as "user" | "assistant" | "system",
+        content: msg.content,
+      }));
+
+      // Add the new user message to the API messages
+      apiMessages.push({
+        role: "user",
+        content: userMessage.content,
+      });
+
+      // Validate the API endpoint path
+      const apiEndpoint = "/api/chat";
+      console.log(`Sending request to API endpoint: ${apiEndpoint}`);
+
+      // Send to API route with attachments
+      const response = await fetch(apiEndpoint, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          messages: apiMessages,
+          method: conversation.learning_option,
+          attachments: attachmentData,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`API error: ${response.status} - ${errorText}`);
+        throw new Error(
+          `Failed to get response from API: ${response.status} - ${errorText}`
+        );
+      }
+
+      const data = await response.json();
+      console.log("API response received:", data);
+
+      // Update UI message status to sent
+      setMessages((prev) =>
+        prev.map((msg) =>
+          msg === userMessage ? { ...msg, status: "sent" } : msg
+        )
+      );
+
+      // Add assistant response
+      const assistantMessage: UIMessage = {
         role: "assistant",
-        content: aiContent,
+        content: data.message,
         timestamp: new Date(),
         status: "sent",
       };
-      setMessages((prev) => [...prev, aiResponse]);
-    }, 1500);
+      setMessages((prev) => [...prev, assistantMessage]);
+
+      // Clear attachments after sending
+      setAttachments([]);
+    } catch (error) {
+      console.error("Error sending message:", error);
+      // Add user-facing error message
+      toast.error("Failed to get response from AI");
+
+      // Update message status to show error
+      setMessages((prev) =>
+        prev.map((msg) =>
+          msg === userMessage ? { ...msg, status: "error" } : msg
+        )
+      );
+    } finally {
+      setIsTyping(false);
+    }
   };
 
   const handleSessionEnd = () => {
@@ -320,6 +440,65 @@ export default function ConversationPage({
     return summary.replace(/^Learning session about:\s*/i, "");
   };
 
+  // Handle file attachment selection
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    console.log(`Processing ${files.length} selected files`);
+
+    Array.from(files).forEach((file) => {
+      // Check file size
+      if (file.size > MAX_FILE_SIZE) {
+        console.error(`File ${file.name} exceeds maximum size limit of 10MB`);
+        toast.error(`File ${file.name} exceeds maximum size limit of 10MB`);
+        return;
+      }
+
+      console.log(
+        `Reading file: ${file.name}, type: ${file.type}, size: ${file.size} bytes`
+      );
+      const reader = new FileReader();
+
+      reader.onload = (event) => {
+        if (event.target && event.target.result) {
+          const content = event.target.result as string;
+          console.log(
+            `File ${file.name} loaded, content length: ${content.length}`
+          );
+          const base64Content = content.split(",")[1]; // Remove the data URL prefix
+          console.log(`Base64 content length: ${base64Content.length}`);
+
+          const newAttachment: FileAttachment = {
+            id: crypto.randomUUID(),
+            name: file.name,
+            type: file.type,
+            size: file.size,
+            content: base64Content,
+          };
+          setAttachments((prev) => [...prev, newAttachment]);
+        }
+      };
+
+      reader.onerror = (error) => {
+        console.error(`Error reading file ${file.name}:`, error);
+        toast.error(`Failed to read file ${file.name}. Please try again.`);
+      };
+
+      reader.readAsDataURL(file);
+    });
+
+    // Reset the file input
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
+
+  // Handle removing an attachment
+  const removeAttachment = (id: string) => {
+    setAttachments((prev) => prev.filter((attachment) => attachment.id !== id));
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-full">
@@ -420,16 +599,130 @@ export default function ConversationPage({
                     : "bg-teal-600/30 mr-auto max-w-[80%]"
                 }`}
               >
-                <p className="text-white">{message.content}</p>
+                {message.role === "assistant" ? (
+                  <div className="prose prose-invert prose-sm max-w-none">
+                    <ReactMarkdown
+                      remarkPlugins={[remarkGfm]}
+                      components={{
+                        a: (props) => (
+                          <a
+                            {...props}
+                            className="text-teal-300 underline hover:text-teal-200"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                          />
+                        ),
+                        ul: (props) => (
+                          <ul {...props} className="list-disc pl-5 space-y-1" />
+                        ),
+                        ol: (props) => (
+                          <ol
+                            {...props}
+                            className="list-decimal pl-5 space-y-1"
+                          />
+                        ),
+                        code: ({ inline, ...props }: CodeProps) =>
+                          inline ? (
+                            <code
+                              {...props}
+                              className="bg-teal-700/50 px-1 py-0.5 rounded text-sm"
+                            />
+                          ) : (
+                            <code
+                              {...props}
+                              className="block bg-teal-700/70 p-2 rounded-md overflow-x-auto text-sm my-2"
+                            />
+                          ),
+                        pre: (props) => (
+                          <pre
+                            {...props}
+                            className="bg-transparent p-0 overflow-x-auto"
+                          />
+                        ),
+                        h1: (props) => (
+                          <h1
+                            {...props}
+                            className="text-xl font-bold mt-4 mb-2"
+                          />
+                        ),
+                        h2: (props) => (
+                          <h2
+                            {...props}
+                            className="text-lg font-bold mt-3 mb-1"
+                          />
+                        ),
+                        h3: (props) => (
+                          <h3
+                            {...props}
+                            className="text-md font-bold mt-2 mb-1"
+                          />
+                        ),
+                        blockquote: (props) => (
+                          <blockquote
+                            {...props}
+                            className="border-l-2 border-teal-400 pl-3 italic"
+                          />
+                        ),
+                      }}
+                    >
+                      {message.content}
+                    </ReactMarkdown>
+                  </div>
+                ) : (
+                  <p className="text-white">{message.content}</p>
+                )}
                 <p className="text-white/50 text-xs mt-1">
                   {message.timestamp.toLocaleTimeString()}
                   {message.status === "sending" && " • Sending..."}
+                  {message.status === "error" && " • Error sending"}
                 </p>
               </div>
             ))}
+
+            {isTyping && (
+              <div className="self-start bg-teal-600/50 text-white rounded-lg p-3 max-w-md">
+                <div className="flex space-x-2">
+                  <div className="w-2 h-2 bg-white rounded-full animate-bounce"></div>
+                  <div
+                    className="w-2 h-2 bg-white rounded-full animate-bounce"
+                    style={{ animationDelay: "0.2s" }}
+                  ></div>
+                  <div
+                    className="w-2 h-2 bg-white rounded-full animate-bounce"
+                    style={{ animationDelay: "0.4s" }}
+                  ></div>
+                </div>
+              </div>
+            )}
+
             <div ref={messagesEndRef} />
           </div>
         </div>
+
+        {/* Attachment Display */}
+        {attachments.length > 0 && (
+          <div className="mb-2 p-2 bg-teal-700/30 rounded-lg">
+            <p className="text-white text-xs mb-2">Attachments:</p>
+            <div className="flex flex-wrap gap-2">
+              {attachments.map((file) => (
+                <div
+                  key={file.id}
+                  className="flex items-center bg-teal-600/60 rounded px-2 py-1"
+                >
+                  <span className="text-white text-xs truncate max-w-[150px]">
+                    {file.name}
+                  </span>
+                  <button
+                    onClick={() => removeAttachment(file.id)}
+                    className="ml-2 text-white opacity-70 hover:opacity-100"
+                  >
+                    <CloseIcon className="h-3 w-3" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Message input */}
         <div className="flex gap-2">
@@ -445,13 +738,37 @@ export default function ConversationPage({
               }
             }}
           />
-          <Button
-            onClick={handleSendMessage}
-            className="bg-teal-600 hover:bg-teal-500 text-white h-16 px-4"
-            disabled={!inputMessage.trim()}
-          >
-            <SendIcon className="h-5 w-5" />
-          </Button>
+          <div className="flex flex-col gap-2">
+            <Button
+              onClick={() => fileInputRef.current?.click()}
+              className="bg-teal-600 hover:bg-teal-500 text-white h-8 px-2 flex-1"
+              type="button"
+            >
+              <PaperclipIcon className="h-5 w-5" />
+            </Button>
+
+            <Button
+              onClick={handleSendMessage}
+              className="bg-teal-600 hover:bg-teal-500 text-white h-8 px-2 flex-1"
+              disabled={
+                (!inputMessage.trim() && attachments.length === 0) || isTyping
+              }
+            >
+              <SendIcon className="h-5 w-5" />
+            </Button>
+          </div>
+
+          <input
+            type="file"
+            ref={fileInputRef}
+            onChange={handleFileChange}
+            className="hidden"
+            multiple
+            accept="image/*,application/pdf,.doc,.docx,.txt,.csv,.xls,.xlsx"
+          />
+        </div>
+        <div className="text-white/50 text-xs mt-1">
+          Supported files: Images, PDFs, Documents, Text files (Max 10MB)
         </div>
       </main>
 
@@ -534,6 +851,45 @@ function SendIcon(props: React.SVGProps<SVGSVGElement>) {
     >
       <path d="m22 2-7 20-4-9-9-4Z" />
       <path d="M22 2 11 13" />
+    </svg>
+  );
+}
+
+function PaperclipIcon(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg
+      {...props}
+      xmlns="http://www.w3.org/2000/svg"
+      width="24"
+      height="24"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48" />
+    </svg>
+  );
+}
+
+function CloseIcon(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg
+      {...props}
+      xmlns="http://www.w3.org/2000/svg"
+      width="24"
+      height="24"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M18 6 6 18" />
+      <path d="m6 6 12 12" />
     </svg>
   );
 }
