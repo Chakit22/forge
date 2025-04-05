@@ -4,19 +4,19 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/utils/supabase/server";
 
 // Type definitions
-type LoginData = {
+export type LoginData = {
   email: string;
   password: string;
 };
 
-type SignupData = {
+export type SignupData = {
   name: string;
   email: string;
   password: string;
   phone_number?: string;
 };
 
-type ConversationData = {
+export type ConversationData = {
   duration: string; // ISO duration format
   learning_option: string;
   summary?: string;
@@ -27,14 +27,14 @@ type ConversationData = {
   }[];
 };
 
-type User = {
+export type User = {
   id: number;
   name: string;
   email: string;
   phone_number?: string;
 };
 
-type Conversation = {
+export type Conversation = {
   id: number;
   user_id: number;
   duration: string;

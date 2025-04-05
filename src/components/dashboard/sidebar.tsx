@@ -1,83 +1,140 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { CreateConversationModal } from "@/components/create-conversation-modal";
+import { getUserConversations } from "@/app/api/actions";
+import type { Conversation } from "@/app/api/actions";
 
 interface SidebarProps {
   className?: string;
 }
 
-interface CategoryItem {
-  id: string;
-  name: string;
-}
-
 interface Category {
   name: string;
-  items: CategoryItem[];
+  conversations: Conversation[];
 }
 
 export function Sidebar({ className }: SidebarProps) {
-  const categories: Category[] = [
-    {
-      name: "Memorization",
-      items: [
-        { id: "japanese", name: "Japanese Words" },
-        { id: "medical", name: "Medical Terms" },
-      ],
-    },
-    {
-      name: "Understanding",
-      items: [
-        { id: "list", name: "I've went through the list!" },
-      ],
-    },
-    {
-      name: "Testing",
-      items: [
-        { id: "testing-list", name: "I've went through the list!" },
-      ],
-    },
-  ];
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    fetchConversations();
+  }, []);
+
+  const fetchConversations = async () => {
+    setIsLoading(true);
+    try {
+      const response = await getUserConversations();
+
+      if (response.success && response.conversations) {
+        // Group conversations by learning option
+        const grouped = response.conversations.reduce(
+          (acc: Record<string, Conversation[]>, conversation) => {
+            const option = conversation.learning_option;
+            if (!acc[option]) {
+              acc[option] = [];
+            }
+            acc[option].push(conversation);
+            return acc;
+          },
+          {}
+        );
+
+        // Convert to categories array
+        const newCategories = Object.entries(grouped).map(
+          ([name, conversations]) => ({
+            name: name.charAt(0).toUpperCase() + name.slice(1), // Capitalize
+            conversations,
+          })
+        );
+
+        setCategories(newCategories);
+      } else {
+        setCategories([]);
+      }
+    } catch (error) {
+      console.error("Error fetching conversations for sidebar:", error);
+      setCategories([]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleCreateSuccess = () => {
+    setIsModalOpen(false);
+    fetchConversations();
+  };
+
+  // Format the summary for display in sidebar
+  const formatSummary = (summary?: string) => {
+    if (!summary) return "Untitled Session";
+    // Remove the "Learning session about: " prefix if it exists
+    const cleanSummary = summary.replace(/^Learning session about:\s*/i, "");
+    // Truncate if too long
+    return cleanSummary.length > 25
+      ? cleanSummary.substring(0, 25) + "..."
+      : cleanSummary;
+  };
 
   return (
     <div className={cn("pb-12 w-64 bg-teal-800", className)}>
       <div className="space-y-4 py-4">
         <div className="px-4 py-2">
-          <Button variant="ghost" className="w-full justify-start bg-teal-700/50 hover:bg-teal-700/70 text-white">
+          <Button
+            variant="ghost"
+            className="w-full justify-start bg-teal-700/50 hover:bg-teal-700/70 text-white"
+            onClick={() => setIsModalOpen(true)}
+          >
             <MessageSquareIcon className="mr-2 h-4 w-4" />
             New Chat
           </Button>
         </div>
         <div className="px-3">
           <ScrollArea className="h-[calc(100vh-100px)]">
-            {categories.map((category, index) => (
-              <div key={index} className="py-2">
-                <h2 className="mb-2 px-4 text-lg font-semibold tracking-tight text-white">
-                  {category.name}
-                </h2>
-                <div className="space-y-1">
-                  {category.items.map((item) => (
-                    <Button
-                      key={item.id}
-                      variant="ghost"
-                      className="w-full justify-start text-white/80 hover:bg-teal-700/50 hover:text-white"
-                      asChild
-                    >
-                      <Link href={`/dashboard/${item.id}`}>
-                        {item.name}
-                      </Link>
-                    </Button>
-                  ))}
+            {isLoading ? (
+              <div className="px-4 text-white/70">Loading...</div>
+            ) : categories.length === 0 ? (
+              <div className="px-4 text-white/70">No conversations yet</div>
+            ) : (
+              categories.map((category, index) => (
+                <div key={index} className="py-2">
+                  <h2 className="mb-2 px-4 text-lg font-semibold tracking-tight text-white">
+                    {category.name}
+                  </h2>
+                  <div className="space-y-1">
+                    {category.conversations.map((conversation) => (
+                      <Button
+                        key={conversation.id}
+                        variant="ghost"
+                        className="w-full justify-start text-white/80 hover:bg-teal-700/50 hover:text-white"
+                        asChild
+                      >
+                        <Link
+                          href={`/dashboard/conversation/${conversation.id}`}
+                        >
+                          {formatSummary(conversation.summary)}
+                        </Link>
+                      </Button>
+                    ))}
+                  </div>
                 </div>
-              </div>
-            ))}
+              ))
+            )}
           </ScrollArea>
         </div>
       </div>
+
+      {/* Conversation Creation Modal */}
+      <CreateConversationModal
+        isOpen={isModalOpen}
+        onClose={handleCreateSuccess}
+      />
     </div>
   );
 }
@@ -99,4 +156,4 @@ function MessageSquareIcon(props: React.SVGProps<SVGSVGElement>) {
       <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
     </svg>
   );
-} 
+}
