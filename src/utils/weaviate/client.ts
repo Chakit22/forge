@@ -63,7 +63,11 @@ export async function classExists(className: string): Promise<boolean> {
 // Create a class in Weaviate if it doesn't exist
 export async function createClassIfNotExists(
   className: string, 
-  properties: Array<{ name: string, dataType: string[] }>,
+  properties: Array<{ 
+    name: string, 
+    dataType: string[], 
+    nestedProperties?: Array<{ name: string, dataType: string[] }> 
+  }>,
   vectorizer: string = 'text2vec-openai'
 ): Promise<void> {
   const client = getWeaviateClient();
@@ -75,7 +79,7 @@ export async function createClassIfNotExists(
       
       // Remove metadata property if it's of type object without nested properties
       const filteredProperties = properties.filter(prop => {
-        if (prop.name === 'metadata' && prop.dataType.includes('object')) {
+        if (prop.name === 'metadata' && prop.dataType.includes('object') && !prop.nestedProperties) {
           console.log('Removing metadata property from schema as it requires nested properties');
           return false;
         }

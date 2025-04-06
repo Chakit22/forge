@@ -78,7 +78,7 @@ export async function setupImageClass() {
         // Removing metadata field as it requires nested properties
         // { name: 'metadata', dataType: ['object'] },
       ],
-      'img2vec-neural' // Using an image vectorizer
+      'text2vec-openai' // Using text2vec-openai instead of img2vec-neural
     );
     console.log('Image class setup complete');
   } catch (error) {
@@ -95,7 +95,16 @@ export async function setupQuizClass() {
         { name: 'userId', dataType: ['string'] },
         { name: 'title', dataType: ['string'] },
         { name: 'description', dataType: ['text'] },
-        { name: 'questions', dataType: ['object[]'] },
+        { 
+          name: 'questions', 
+          dataType: ['object[]'],
+          nestedProperties: [
+            { name: 'question', dataType: ['text'] },
+            { name: 'options', dataType: ['text[]'] },
+            { name: 'correctAnswer', dataType: ['text'] },
+            { name: 'explanation', dataType: ['text'] }
+          ]
+        },
         { name: 'learningOption', dataType: ['string'] },
         { name: 'timestamp', dataType: ['date'] },
       ]
