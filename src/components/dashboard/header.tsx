@@ -8,6 +8,7 @@ import { signout } from "@/app/api/actions";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { CiLogout } from "react-icons/ci";
+import Image from "next/image";
 
 interface HeaderProps {
   toggleSidebar?: () => void;
@@ -55,15 +56,18 @@ export function Header({ toggleSidebar }: HeaderProps) {
           <MenuIcon className="h-6 w-6" />
           <span className="sr-only">Toggle sidebar</span>
         </Button>
-        <div className="flex items-center gap-2">
-          <BrainIcon className="h-6 w-6 text-white" />
+        <div className="flex items-center">
+          <Image src="/logo.png" alt="Forge Logo" width={48} height={48} />
           <h1 className="text-xl font-bold text-white">FORGE</h1>
         </div>
       </div>
       <div className="text-xl font-medium text-white">{currentTime}</div>
       <div className="flex items-center gap-2">
         {/* Sign out button */}
-        <Button className="hidden md:block bg-gray-900 hover:bg-gray-800 text-white" onClick={handleSignout}>
+        <Button
+          className="hidden md:block bg-gray-900 hover:bg-gray-800 text-white"
+          onClick={handleSignout}
+        >
           Sign Out
         </Button>
         <CiLogout
@@ -92,23 +96,6 @@ function MenuIcon(props: React.SVGProps<SVGSVGElement>) {
     >
       <rect width="18" height="18" x="3" y="3" rx="2" />
       <path d="M9 3v18" />
-    </svg>
-  );
-}
-
-function BrainIcon(props: React.SVGProps<SVGSVGElement>) {
-  return (
-    <svg
-      {...props}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 16c-3.31 0-6-2.69-6-6s2.69-6 6-6 6 2.69 6 6-2.69 6-6 6z" />
-      <path d="M12 8v4l3 3 1-1-2.5-2.5V8z" />
     </svg>
   );
 }

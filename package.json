@@ -32,6 +32,7 @@
     "form-data": "^4.0.2",
     "lucide-react": "^0.487.0",
     "mammoth": "^1.9.0",
+    "motion": "^12.6.3",
     "nanoid": "^5.1.5",
     "next": "15.2.4",
     "openai": "^4.91.1",

@@ -4,29 +4,38 @@ import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import Image from "next/image";
 
 export default function LearningDuration() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const method = searchParams.get("method");
-
   const [hours, setHours] = useState("00");
   const [minutes, setMinutes] = useState("30");
   const [seconds, setSeconds] = useState("00");
+
+  const summary = searchParams.get("summary");
+  const learningOption = searchParams.get("learningOption");
 
   const handleContinue = () => {
     const totalSeconds =
       parseInt(hours) * 3600 + parseInt(minutes) * 60 + parseInt(seconds);
 
-    if (totalSeconds > 0) {
-      router.push(
-        `/dashboard/session?method=${method}&duration=${totalSeconds}`
-      );
+    if (totalSeconds === 0) {
+      alert("Please select a study duration");
+      return;
     }
+
+    router.push(
+      `/dashboard/session?summary=${encodeURIComponent(
+        summary || ""
+      )}&learningOption=${encodeURIComponent(
+        learningOption || ""
+      )}&duration=${encodeURIComponent(`${hours}:${minutes}:${seconds}`)}`
+    );
   };
 
   return (
-    <div className="min-h-screen bg-teal-800 flex flex-col">
+    <div className="min-h-screen bg-black flex flex-col">
       <header className="flex items-center p-6">
         <Button
           variant="ghost"
@@ -36,7 +45,13 @@ export default function LearningDuration() {
           <ArrowLeftIcon className="h-6 w-6 mr-2" />
         </Button>
         <div className="flex items-center">
-          <BrainIcon className="h-6 w-6 text-white mr-2" />
+          <Image
+            src="/logo.png"
+            alt="Forge Logo"
+            width={48}
+            height={48}
+            className="mr-2"
+          />
           <span className="text-xl font-bold text-white">FORGE</span>
         </div>
       </header>
@@ -73,7 +88,7 @@ export default function LearningDuration() {
         </div>
 
         <Button
-          className="bg-teal-600 hover:bg-teal-500 text-white border-0 py-6 px-8 text-lg rounded-md w-48"
+          className="bg-slate-800 hover:bg-slate-700 text-white border-0 py-6 px-8 text-lg rounded-md w-48"
           onClick={handleContinue}
         >
           Continue
@@ -142,23 +157,6 @@ function ArrowLeftIcon(props: React.SVGProps<SVGSVGElement>) {
     >
       <path d="m12 19-7-7 7-7" />
       <path d="M19 12H5" />
-    </svg>
-  );
-}
-
-function BrainIcon(props: React.SVGProps<SVGSVGElement>) {
-  return (
-    <svg
-      {...props}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 16c-3.31 0-6-2.69-6-6s2.69-6 6-6 6 2.69 6 6-2.69 6-6 6z" />
-      <path d="M12 8v4l3 3 1-1-2.5-2.5V8z" />
     </svg>
   );
 }

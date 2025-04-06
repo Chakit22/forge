@@ -12,6 +12,7 @@ import { toast } from "sonner";
 import type { loginFormType } from "@/types/loginFormType";
 import { useUser } from "@/context/user-context";
 import { FaEye, FaEyeSlash } from "react-icons/fa";
+import Image from "next/image";
 
 export default function SignIn() {
   const router = useRouter();
@@ -68,15 +69,8 @@ export default function SignIn() {
         {/* Left panel */}
         <div className="w-full p-8 md:w-1/2 md:p-12">
           <div className="mb-6 flex items-center">
-            <div className="mr-2 flex h-8 w-8 items-center justify-center rounded-full bg-slate-800 border border-slate-700">
-              <svg
-                viewBox="0 0 24 24"
-                className="h-5 w-5 text-white"
-                fill="currentColor"
-              >
-                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 16c-3.31 0-6-2.69-6-6s2.69-6 6-6 6 2.69 6 6-2.69 6-6 6z" />
-                <path d="M12 8v4l3 3 1-1-2.5-2.5V8z" />
-              </svg>
+            <div className="flex items-center justify-center">
+              <Image src="/logo.png" alt="Forge Logo" width={48} height={48} />
             </div>
             <span className="text-xl font-bold text-white">FORGE</span>
           </div>

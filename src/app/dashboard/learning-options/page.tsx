@@ -1,23 +1,29 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
-import { Card } from "@/components/ui/card";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
-// import Link from "next/link";
+import { Card } from "@/components/ui/card";
+import Image from "next/image";
 
 export default function LearningOptions() {
+  const [selectedOption, setSelectedOption] = useState<string>("");
   const router = useRouter();
-  const [selectedOption, setSelectedOption] = useState<string | null>(null);
+  const searchParams = useSearchParams();
+  const summary = searchParams.get("summary");
 
   const handleContinue = () => {
     if (selectedOption) {
-      router.push(`/dashboard/learning-duration?method=${selectedOption}`);
+      router.push(
+        `/dashboard/learning-duration?summary=${encodeURIComponent(
+          summary || ""
+        )}&learningOption=${selectedOption}`
+      );
     }
   };
 
   return (
-    <div className="min-h-screen bg-teal-800 flex flex-col">
+    <div className="min-h-screen bg-black flex flex-col">
       <header className="flex items-center p-6">
         <Button
           variant="ghost"
@@ -27,7 +33,13 @@ export default function LearningOptions() {
           <ArrowLeftIcon className="h-6 w-6 mr-2" />
         </Button>
         <div className="flex items-center">
-          <BrainIcon className="h-6 w-6 text-white mr-2" />
+          <Image
+            src="/logo.png"
+            alt="Forge Logo"
+            width={48}
+            height={48}
+            className="mr-2"
+          />
           <span className="text-xl font-bold text-white">FORGE</span>
         </div>
       </header>
@@ -39,21 +51,26 @@ export default function LearningOptions() {
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-4xl w-full mb-12">
           <Card
-            className={`bg-teal-600/50 border-0 p-8 rounded-lg cursor-pointer transition-all hover:bg-teal-600/70 ${
+            className={`bg-slate-800 border-0 p-8 rounded-lg cursor-pointer transition-all hover:bg-slate-700 ${
               selectedOption === "memorizing" ? "ring-2 ring-white" : ""
             }`}
             onClick={() => setSelectedOption("memorizing")}
           >
             <div className="flex flex-col items-center text-white">
               <div className="h-24 w-24 flex items-center justify-center mb-6">
-                <BrainIcon className="h-16 w-16" />
+                <Image
+                  src="/logo.png"
+                  alt="Forge Logo"
+                  width={48}
+                  height={48}
+                />
               </div>
               <h3 className="text-xl font-medium">Memorizing</h3>
             </div>
           </Card>
 
           <Card
-            className={`bg-teal-600/50 border-0 p-8 rounded-lg cursor-pointer transition-all hover:bg-teal-600/70 ${
+            className={`bg-slate-800 border-0 p-8 rounded-lg cursor-pointer transition-all hover:bg-slate-700 ${
               selectedOption === "understanding" ? "ring-2 ring-white" : ""
             }`}
             onClick={() => setSelectedOption("understanding")}
@@ -67,7 +84,7 @@ export default function LearningOptions() {
           </Card>
 
           <Card
-            className={`bg-teal-600/50 border-0 p-8 rounded-lg cursor-pointer transition-all hover:bg-teal-600/70 ${
+            className={`bg-slate-800 border-0 p-8 rounded-lg cursor-pointer transition-all hover:bg-slate-700 ${
               selectedOption === "testing" ? "ring-2 ring-white" : ""
             }`}
             onClick={() => setSelectedOption("testing")}
@@ -82,7 +99,7 @@ export default function LearningOptions() {
         </div>
 
         <Button
-          className="bg-teal-600 hover:bg-teal-500 text-white border-0 py-6 px-8 text-lg rounded-md w-48"
+          className="bg-slate-800 hover:bg-slate-700 text-white border-0 py-6 px-8 text-lg rounded-md w-48"
           disabled={!selectedOption}
           onClick={handleContinue}
         >

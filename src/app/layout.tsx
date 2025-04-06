@@ -21,9 +21,9 @@ export const metadata: Metadata = {
 };
 
 // Initialize Weaviate on server start
-if (typeof window === 'undefined') {
-  initWeaviateSchema().catch(error => {
-    console.error('Failed to initialize Weaviate schema:', error);
+if (typeof window === "undefined") {
+  initWeaviateSchema().catch((error) => {
+    console.error("Failed to initialize Weaviate schema:", error);
   });
 }
 
