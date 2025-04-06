@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { OpenAI } from 'openai';
 import { Message } from '../memoagent';
 import type { ChatCompletionMessageParam } from 'openai/resources';
+import { quizService } from '@/utils/weaviate/dataService';
 
 // Initialize OpenAI client
 const getOpenAIClient = () => {
@@ -40,7 +41,7 @@ export async function POST(request: Request) {
   
   try {
     const requestData = await request.json();
-    const { messages, learning_option } = requestData;
+    const { messages, learning_option, userId } = requestData;
     
     if (!messages || !Array.isArray(messages)) {
       return NextResponse.json(
@@ -54,6 +55,25 @@ export async function POST(request: Request) {
     
     // Step 2: Generate quiz questions using Assistant 2
     const quizData = await generateQuizQuestions(conversationSummary, learning_option);
+    
+    // Step 3: Store the quiz in Weaviate if userId is provided
+    if (userId) {
+      try {
+        const quizId = await quizService.create({
+          userId,
+          title: quizData.title,
+          description: quizData.description,
+          questions: quizData.questions,
+          learningOption: learning_option,
+          timestamp: new Date()
+        });
+        
+        console.log(`Quiz stored in Weaviate with ID: ${quizId}`);
+      } catch (error) {
+        console.error('Error storing quiz in Weaviate:', error);
+        // Continue with returning the quiz even if storage fails
+      }
+    }
     
     return NextResponse.json({ quiz: quizData });
   } catch (error) {

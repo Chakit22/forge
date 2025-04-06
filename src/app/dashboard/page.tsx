@@ -6,6 +6,7 @@ import { ConversationList } from "@/components/conversation-list";
 import { Button } from "@/components/ui/button";
 import { CreateConversationModal } from "@/components/create-conversation-modal";
 import UserQuizResults from "@/components/UserQuizResults";
+import UserQuizResults from "@/components/UserQuizResults";
 
 export default function Dashboard() {
   const [isModalOpen, setIsModalOpen] = useState(false);

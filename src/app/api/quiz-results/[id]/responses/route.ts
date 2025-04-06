@@ -1,14 +1,13 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
 import { getCurrentUser } from '@/app/api/actions';
 
-// Using Next.js App Router pattern for dynamic route segments
 export async function GET(
-  req: NextRequest,   { params }: { params: Promise<{ id: string }> }
-
+  request: Request,
+  { params }: { params: { id: string } }
 ) {
   try {
-    const { id: resultId } = await params;
+    const resultId = params.id;
     
     if (!resultId) {
       return NextResponse.json(

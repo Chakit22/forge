@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "sonner";
 import { UserProvider } from "@/context/user-context";
+import { initWeaviateSchema } from "./api/weaviate-init/initSchema";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -18,6 +19,13 @@ export const metadata: Metadata = {
   title: "Forge - AI Learning Assistant",
   description: "Your personalized AI learning assistant.",
 };
+
+// Initialize Weaviate on server start
+if (typeof window === 'undefined') {
+  initWeaviateSchema().catch(error => {
+    console.error('Failed to initialize Weaviate schema:', error);
+  });
+}
 
 export default function RootLayout({
   children,

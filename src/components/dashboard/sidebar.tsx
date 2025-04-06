@@ -107,7 +107,7 @@ export function Sidebar({ className }: SidebarProps) {
           </Button>
         </div>
         <div className="px-3">
-          <ScrollArea className="h-[calc(100vh-100px)]">
+          <ScrollArea className="h-[calc(100vh-150px)]">
             {isLoading ? (
               <div className="px-4 text-white/70">Loading...</div>
             ) : categories.length === 0 ? (

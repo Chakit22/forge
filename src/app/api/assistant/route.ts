@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
 import { OpenAI } from 'openai';
 import { Message } from '../memoagent';
-import * as fs from 'fs';
 
 // Initialize OpenAI client
 const getOpenAIClient = () => {
@@ -24,13 +23,6 @@ const getOpenAIClient = () => {
 // Hardcoded assistant IDs
 const FORGE_AI_ASSISTANT_ID = 'asst_lUOM3FHlVOfvdjUnlk4VTiFJ';
 const FORGE_AI_QUIZ_ASSISTANT_ID = 'asst_0llOZbtpQwQoKWwGzP00CPFG';
-
-// Define interfaces for file attachments
-interface FileAttachment {
-  name: string;
-  content: string; // base64 encoded content
-  type?: string;
-}
 
 export async function POST(request: Request) {
   console.log('Assistant API endpoint triggered');
@@ -78,7 +70,7 @@ export async function POST(request: Request) {
 async function runAssistantConversation(
   messages: Message[],
   assistantId: string,
-  attachments?: FileAttachment[]
+  attachments?: any[]
 ): Promise<string> {
   const openai = getOpenAIClient();
   console.log(`Using assistant ID: ${assistantId}`);
@@ -200,8 +192,8 @@ async function runAssistantConversation(
             } else {
               console.warn('JSON found but missing required quiz fields');
             }
-          } catch (error) {
-            console.error('Failed to parse extracted JSON:', error);
+          } catch (parseError) {
+            console.error('Failed to parse extracted JSON:', parseError);
           }
         }
         
@@ -238,11 +230,11 @@ async function runAssistantConversation(
               console.log(`Found valid nested quiz after cleaning with ${parsedJson.quiz.questions.length} questions`);
               return JSON.stringify(parsedJson.quiz); // Return only the quiz object as JSON
             }
-          } catch (error) {
-            console.error("Failed to parse cleaned JSON", error);
+          } catch (parseError) {
+            console.error('Failed to parse cleaned JSON');
           }
         }
-
+        
         console.log('Could not find valid quiz JSON in the response, returning raw response');
       } catch (jsonError) {
         console.error('Error handling JSON from assistant response:', jsonError);
@@ -257,26 +249,19 @@ async function runAssistantConversation(
 }
 
 // Process file attachments and return file IDs
-async function processAttachments(openai: OpenAI, attachments: FileAttachment[]): Promise<string[]> {
+async function processAttachments(openai: OpenAI, attachments: any[]): Promise<string[]> {
   const fileIds: string[] = [];
   
   for (const attachment of attachments) {
     try {
       // Convert base64 to buffer
       const buffer = Buffer.from(attachment.content, 'base64');
-
-      // Create a temporary file with a proper name (required for OpenAI)
-      const tempFilePath = `/tmp/${attachment.name || "file.txt"}`;
-      fs.writeFileSync(tempFilePath, buffer);
-
-      // Create a file with OpenAI using the file path
+      
+      // Create a file with OpenAI
       const file = await openai.files.create({
-        file: fs.createReadStream(tempFilePath),
+        file: buffer,
         purpose: 'assistants',
       });
-      
-      // Clean up the temporary file
-      fs.unlinkSync(tempFilePath);
       
       fileIds.push(file.id);
       console.log(`File uploaded: ${file.id}`);

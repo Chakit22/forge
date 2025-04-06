@@ -8,7 +8,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Quiz } from "@/app/api/quiz-generator/route";
+import { Quiz, QuizQuestion } from "@/app/api/quiz-generator/route";
 import { toast } from "sonner";
 import { useUser } from "@/context/user-context";
 import { QuizResultRequest } from "@/app/api/quiz-results/route";
