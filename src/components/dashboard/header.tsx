@@ -44,13 +44,13 @@ export function Header({ toggleSidebar }: HeaderProps) {
   };
 
   return (
-    <header className="flex items-center justify-between p-4 bg-teal-800">
+    <header className="flex items-center justify-between p-4 bg-black border-b border-white/10">
       <div className="flex items-center gap-2">
         <Button
           variant="ghost"
           onClick={toggleSidebar}
           size="icon"
-          className="text-white hover:bg-teal-700/50"
+          className="text-white hover:bg-gray-800"
         >
           <MenuIcon className="h-6 w-6" />
           <span className="sr-only">Toggle sidebar</span>
@@ -63,12 +63,12 @@ export function Header({ toggleSidebar }: HeaderProps) {
       <div className="text-xl font-medium text-white">{currentTime}</div>
       <div className="flex items-center gap-2">
         {/* Sign out button */}
-        <Button className="hidden md:block" onClick={handleSignout}>
+        <Button className="hidden md:block bg-gray-900 hover:bg-gray-800 text-white" onClick={handleSignout}>
           Sign Out
         </Button>
         <CiLogout
           size={30}
-          className="cursor-pointer md:hidden"
+          className="cursor-pointer md:hidden text-white"
           onClick={handleSignout}
         />
       </div>

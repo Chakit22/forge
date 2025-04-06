@@ -111,7 +111,7 @@ export function WeaviateMessageSync({
   // Render children with added loading state
   return (
     <div className="weaviate-message-sync">
-      {isLoading && <div className="text-xs text-gray-400">Loading conversation history...</div>}
+      {isLoading && <div className="text-xs text-white">Loading conversation history...</div>}
       {error && <div className="text-xs text-red-400">Error loading history: {error}</div>}
       {children}
     </div>

@@ -220,7 +220,7 @@ export default function WeaviateConversationWrapper({
   return (
     <>
       {isLoading && (
-        <div className="fixed top-0 left-0 right-0 bg-teal-600 text-white text-xs text-center py-1 z-50">
+        <div className="fixed top-0 left-0 right-0 bg-black text-white text-xs text-center py-1 z-50">
           Loading conversation history...
         </div>
       )}

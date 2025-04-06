@@ -61,7 +61,7 @@ export default function DashboardLayout({
 
   if (isLoading) {
     return (
-      <div className="flex h-screen items-center justify-center bg-teal-800">
+      <div className="flex h-screen items-center justify-center bg-black">
         <p className="text-white text-lg">Loading...</p>
       </div>
     );
@@ -78,7 +78,7 @@ export default function DashboardLayout({
       <div className="flex flex-1 overflow-hidden">
         {isSidebarOpen && <Sidebar className="flex-shrink-0" />}
 
-        <main className="flex-1 overflow-auto bg-teal-700 p-4">{children}</main>
+        <main className="flex-1 overflow-auto bg-black p-4">{children}</main>
       </div>
     </div>
   );

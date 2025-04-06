@@ -101,7 +101,7 @@ export async function setupQuizClass() {
           nestedProperties: [
             { name: 'question', dataType: ['text'] },
             { name: 'options', dataType: ['text[]'] },
-            { name: 'correctAnswer', dataType: ['text'] },
+            { name: 'correctAnswerIndex', dataType: ['number'] },
             { name: 'explanation', dataType: ['text'] }
           ]
         },
@@ -115,6 +115,40 @@ export async function setupQuizClass() {
   }
 }
 
+export async function setupQuizResultClass() {
+  try {
+    console.log('Setting up QuizResult class in Weaviate');
+    await createClassIfNotExists(
+      'QuizResult',
+      [
+        { name: 'userId', dataType: ['string'] },
+        { name: 'quizId', dataType: ['string'] },
+        { name: 'score', dataType: ['number'] },
+        { name: 'totalQuestions', dataType: ['number'] },
+        { 
+          name: 'responses', 
+          dataType: ['object[]'],
+          nestedProperties: [
+            { name: 'questionId', dataType: ['number'] },
+            { name: 'question', dataType: ['text'] },
+            { name: 'selectedOptionIndex', dataType: ['number'] },
+            { name: 'correctOptionIndex', dataType: ['number'] },
+            { name: 'isCorrect', dataType: ['boolean'] }
+          ]
+        },
+        { name: 'feedback', dataType: ['text'] },
+        { name: 'learningOption', dataType: ['string'] },
+        { name: 'strengthAreas', dataType: ['text[]'] },
+        { name: 'weaknessAreas', dataType: ['text[]'] },
+        { name: 'timestamp', dataType: ['date'] },
+      ]
+    );
+    console.log('QuizResult class setup complete');
+  } catch (error) {
+    console.error('Error setting up QuizResult class:', error);
+  }
+}
+
 // Initialize all schema classes
 export async function initializeSchema() {
   console.log('Starting Weaviate schema initialization');
@@ -125,6 +159,7 @@ export async function initializeSchema() {
     await setupDocumentClass();
     await setupImageClass();
     await setupQuizClass();
+    await setupQuizResultClass();
     console.log('Weaviate schema initialization complete');
     return true;
   } catch (error) {

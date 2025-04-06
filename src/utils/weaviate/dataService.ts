@@ -44,6 +44,24 @@ export type Quiz = BaseObject & {
   learningOption: string;
 };
 
+// QuizResult type
+export type QuizResult = BaseObject & {
+  quizId: string;
+  score: number;
+  totalQuestions: number;
+  responses: {
+    questionId: number;
+    question: string;
+    selectedOptionIndex: number;
+    correctOptionIndex: number;
+    isCorrect: boolean;
+  }[];
+  feedback: string;
+  learningOption: string;
+  strengthAreas: string[];
+  weaknessAreas: string[];
+};
+
 // Generic create function
 async function createObject<T extends BaseObject>(
   className: string,
@@ -55,24 +73,58 @@ async function createObject<T extends BaseObject>(
   try {
     console.log(`Creating ${className} object with ID: ${id}`);
     
+    // Deep clone the data to avoid modifying the original
+    let formattedData = JSON.parse(JSON.stringify(data));
+    
     // Format timestamp
-    const formattedData = {
-      ...data,
-      timestamp: data.timestamp instanceof Date 
-        ? data.timestamp.toISOString() 
-        : data.timestamp
+    formattedData = {
+      ...formattedData,
+      timestamp: formattedData.timestamp instanceof Date 
+        ? formattedData.timestamp.toISOString() 
+        : formattedData.timestamp
     };
     
-    console.log(`${className} data:`, {
-      ...formattedData,
-      // Don't show full content in logs
-      ...(('content' in formattedData) ? { 
-        content: typeof formattedData.content === 'string' 
-          ? formattedData.content.slice(0, 50) + (formattedData.content.length > 50 ? '...' : '') 
-          : '[non-string content]' 
-      } : {})
+    // Process and validate nested arrays/objects
+    Object.keys(formattedData).forEach(key => {
+      const value = formattedData[key];
+      
+      // Handle arrays
+      if (Array.isArray(value)) {
+        console.log(`Processing array field '${key}' with ${value.length} items`);
+        
+        // If array items are objects, make sure they're properly formatted
+        if (value.length > 0 && typeof value[0] === 'object') {
+          formattedData[key] = value.map(item => {
+            // Handle Date objects in nested arrays
+            if (item && typeof item === 'object') {
+              const processed = { ...item };
+              Object.keys(processed).forEach(itemKey => {
+                if (processed[itemKey] instanceof Date) {
+                  processed[itemKey] = processed[itemKey].toISOString();
+                }
+              });
+              return processed;
+            }
+            return item;
+          });
+        }
+      }
+      
+      // Convert any Date objects to ISO strings
+      else if (value instanceof Date) {
+        formattedData[key] = value.toISOString();
+      }
+      
+      // Handle null/undefined values that Weaviate can't process
+      else if (value === null || value === undefined) {
+        console.log(`Removing null/undefined field '${key}'`);
+        delete formattedData[key];
+      }
     });
     
+    console.log(`${className} data processed and ready for Weaviate`);
+    
+    // Create object in Weaviate
     await client.data
       .creator()
       .withClassName(className)
@@ -84,6 +136,16 @@ async function createObject<T extends BaseObject>(
     return id;
   } catch (error) {
     console.error(`Error creating ${className}:`, error);
+    if (error instanceof Error) {
+      console.error('Error details:', error.message);
+      console.error('Stack trace:', error.stack);
+      console.error('Data that caused error:', JSON.stringify({
+        id,
+        className,
+        // Only show safe parts of data
+        dataKeys: Object.keys(data)
+      }));
+    }
     throw error;
   }
 }
@@ -261,4 +323,39 @@ export const quizService = {
     ['userId', 'title', 'description', 'questions', 'learningOption', 'timestamp']),
   getByUserId: (userId: string) => getObjectsByUserId<Quiz>('Quiz', userId,
     ['userId', 'title', 'description', 'questions', 'learningOption', 'timestamp'])
+};
+
+// QuizResult-specific functions
+export const quizResultService = {
+  create: (data: QuizResult) => createObject<QuizResult>('QuizResult', data),
+  getById: (id: string) => getObjectById<QuizResult>('QuizResult', id),
+  delete: (id: string) => deleteObject('QuizResult', id),
+  search: (query: string) => searchObjects<QuizResult>('QuizResult', query, 
+    ['userId', 'quizId', 'score', 'totalQuestions', 'feedback', 'learningOption', 'strengthAreas', 'weaknessAreas', 'timestamp']),
+  getByUserId: (userId: string) => getObjectsByUserId<QuizResult>('QuizResult', userId,
+    ['userId', 'quizId', 'score', 'totalQuestions', 'feedback', 'learningOption', 'strengthAreas', 'weaknessAreas', 'timestamp', 'responses']),
+  
+  // Get quiz results by quiz ID  
+  getByQuizId: async (quizId: string): Promise<QuizResult[]> => {
+    const client = getWeaviateClient();
+    
+    try {
+      const result = await client.graphql
+        .get()
+        .withClassName('QuizResult')
+        .withFields('userId quizId score totalQuestions feedback learningOption strengthAreas weaknessAreas timestamp responses')
+        .withWhere({
+          path: ['quizId'],
+          operator: 'Equal',
+          valueString: quizId
+        })
+        .withSort([{ path: ['timestamp'], order: 'desc' }])
+        .do();
+      
+      return (result?.data?.Get?.QuizResult || []) as QuizResult[];
+    } catch (error) {
+      console.error('Error fetching quiz results by quiz ID:', error);
+      return [];
+    }
+  }
 }; 

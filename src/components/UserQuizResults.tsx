@@ -21,7 +21,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 
 interface QuizResult {
-  id: number;
+  id: string;
   quiz_id: string;
   user_id: number;
   score: number;
@@ -48,7 +48,7 @@ export default function UserQuizResults() {
   const [quizResults, setQuizResults] = useState<QuizResult[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [selectedQuiz, setSelectedQuiz] = useState<number | null>(null);
+  const [selectedQuiz, setSelectedQuiz] = useState<string | null>(null);
   const [quizResponses, setQuizResponses] = useState<QuizResponse[]>([]);
   const [isLoadingResponses, setIsLoadingResponses] = useState(false);
 
@@ -84,7 +84,7 @@ export default function UserQuizResults() {
     }
   };
 
-  const fetchQuizResponses = async (resultId: number) => {
+  const fetchQuizResponses = async (resultId: string) => {
     if (selectedQuiz === resultId) {
       // Toggle off if already selected
       setSelectedQuiz(null);
@@ -224,7 +224,7 @@ export default function UserQuizResults() {
             {quizResults.map((result) => (
               <AccordionItem
                 key={result.id}
-                value={result.id.toString()}
+                value={result.id}
                 className="border border-gray-200 rounded-lg overflow-hidden"
               >
                 <AccordionTrigger className="px-4 py-2 hover:bg-gray-50">
@@ -249,122 +249,94 @@ export default function UserQuizResults() {
 
                 <AccordionContent className="px-4 py-2">
                   <div className="space-y-4">
-                    {/* Strengths & Weaknesses */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="bg-green-50 p-3 rounded-md">
-                        <h4 className="font-medium text-green-800 mb-2">
-                          Strengths
+                    {/* Strengths */}
+                    {result.strength_areas && result.strength_areas.length > 0 && (
+                      <div className="bg-white/10 p-3 rounded-md">
+                        <h4 className="font-medium text-white mb-2">
+                          Your Strengths
                         </h4>
-                        {result.strength_areas.length > 0 ? (
-                          <ul className="list-disc pl-5 space-y-1">
-                            {result.strength_areas.map((strength, idx) => (
-                              <li key={idx} className="text-green-700">
-                                {strength}
-                              </li>
-                            ))}
-                          </ul>
-                        ) : (
-                          <p className="text-gray-500 italic">
-                            No strengths identified
-                          </p>
-                        )}
+                        <ul className="list-disc pl-5">
+                          {result.strength_areas.map((strength, idx) => (
+                            <li key={idx} className="text-white">
+                              {strength}
+                            </li>
+                          ))}
+                        </ul>
                       </div>
+                    )}
 
-                      <div className="bg-yellow-50 p-3 rounded-md">
-                        <h4 className="font-medium text-yellow-800 mb-2">
+                    {/* Weaknesses */}
+                    {result.weakness_areas && result.weakness_areas.length > 0 && (
+                      <div className="bg-white/10 p-3 rounded-md">
+                        <h4 className="font-medium text-white mb-2">
                           Areas to Improve
                         </h4>
-                        {result.weakness_areas.length > 0 ? (
-                          <ul className="list-disc pl-5 space-y-1">
-                            {result.weakness_areas.map((weakness, idx) => (
-                              <li key={idx} className="text-yellow-700">
-                                {weakness}
-                              </li>
-                            ))}
-                          </ul>
-                        ) : (
-                          <p className="text-gray-500 italic">
-                            No weaknesses identified
-                          </p>
-                        )}
+                        <ul className="list-disc pl-5">
+                          {result.weakness_areas.map((weakness, idx) => (
+                            <li key={idx} className="text-white">
+                              {weakness}
+                            </li>
+                          ))}
+                        </ul>
                       </div>
-                    </div>
+                    )}
 
-                    {/* Feedback */}
-                    <div className="bg-gray-50 p-3 rounded-md">
-                      <h4 className="font-medium text-gray-800 mb-2">
-                        Personalized Feedback
-                      </h4>
-                      <p className="text-gray-700 whitespace-pre-line">
-                        {result.feedback}
-                      </p>
-                    </div>
-
-                    {/* View Details Button */}
-                    <div className="flex justify-center">
+                    {/* Full details button */}
+                    <div className="mt-4">
                       <Button
                         variant="outline"
                         size="sm"
                         onClick={() => fetchQuizResponses(result.id)}
-                        className="mt-2"
+                        className="text-white border-white/20 hover:bg-white/10"
                       >
                         {selectedQuiz === result.id
-                          ? "Hide Details"
-                          : "View Question Details"}
+                          ? "Hide Detailed Responses"
+                          : "View Detailed Responses"}
                       </Button>
                     </div>
 
-                    {/* Question Details */}
+                    {/* Question responses */}
                     {selectedQuiz === result.id && (
                       <div className="mt-4">
                         {isLoadingResponses ? (
-                          <div className="space-y-2">
-                            <Skeleton className="h-16 w-full" />
-                            <Skeleton className="h-16 w-full" />
+                          <div className="text-center py-4">
+                            <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-white mx-auto"></div>
+                            <p className="mt-2 text-white">
+                              Loading responses...
+                            </p>
                           </div>
-                        ) : quizResponses.length > 0 ? (
+                        ) : quizResponses.length === 0 ? (
+                          <p className="text-white">
+                            No detailed responses available for this quiz.
+                          </p>
+                        ) : (
                           <div className="space-y-3">
-                            {quizResponses.map((response) => (
+                            {quizResponses.map((response, idx) => (
                               <div
-                                key={response.id}
+                                key={idx}
                                 className={`p-3 rounded-md ${
                                   response.is_correct
-                                    ? "bg-green-50 border border-green-200"
-                                    : "bg-red-50 border border-red-200"
+                                    ? "bg-white/10 border border-white/20"
+                                    : "bg-black/50 border border-red-500/30"
                                 }`}
                               >
-                                <p className="font-medium mb-1">
-                                  {response.question_text}
+                                <p className="font-medium mb-2">
+                                  Question {idx + 1}: {response.question_text}
                                 </p>
-                                <div className="flex items-center">
-                                  <Badge
-                                    variant={
+                                <div className="flex items-center gap-1">
+                                  <span
+                                    className={`px-2 py-0.5 rounded text-xs ${
                                       response.is_correct
-                                        ? "default"
-                                        : "destructive"
-                                    }
-                                    className="mr-2"
+                                        ? "bg-white/20 text-white"
+                                        : "bg-red-900/30 text-white"
+                                    }`}
                                   >
-                                    {response.is_correct
-                                      ? "Correct"
-                                      : "Incorrect"}
-                                  </Badge>
-                                  <span className="text-sm text-gray-500">
-                                    Your answer: Option{" "}
-                                    {response.selected_option_index + 1}
-                                    {!response.is_correct &&
-                                      ` (Correct: Option ${
-                                        response.correct_option_index + 1
-                                      })`}
+                                    {response.is_correct ? "Correct" : "Incorrect"}
                                   </span>
                                 </div>
                               </div>
                             ))}
                           </div>
-                        ) : (
-                          <p className="text-center text-gray-500">
-                            No detailed responses available
-                          </p>
                         )}
                       </div>
                     )}

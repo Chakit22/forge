@@ -139,7 +139,7 @@ export function ConversationList() {
           size="sm"
           onClick={fetchConversations}
           disabled={isLoading}
-          className="text-white/80 hover:text-white hover:bg-teal-600/30"
+          className="text-white/80 hover:text-white hover:bg-white/10"
         >
           <RefreshCcwIcon className="h-4 w-4 mr-1" />
           Refresh
@@ -158,7 +158,7 @@ export function ConversationList() {
           </Button>
         </div>
       ) : conversations.length === 0 ? (
-        <div className="text-white/70 p-8 text-center bg-teal-600/20 rounded-md">
+        <div className="text-white/70 p-8 text-center bg-black/50 rounded-md">
           <p>No learning sessions found</p>
           <p className="mt-2 text-sm">
             Create a new session using the button above
@@ -169,7 +169,7 @@ export function ConversationList() {
           {conversations.map((conversation) => (
             <div
               key={conversation.id}
-              className="bg-teal-600/30 rounded-lg p-4 text-white hover:bg-teal-600/40 transition-colors cursor-pointer relative"
+              className="bg-black/50 rounded-lg p-4 text-white hover:bg-white/10 transition-colors cursor-pointer relative"
               onClick={() => handleNavigateToConversation(conversation.id)}
             >
               <div className="flex justify-between items-start mb-2">
@@ -185,7 +185,7 @@ export function ConversationList() {
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="text-white/80 hover:text-white hover:bg-teal-600/30"
+                    className="text-white/80 hover:text-white hover:bg-white/10"
                     onClick={(e) => {
                       e.stopPropagation();
                       handleNavigateToConversation(conversation.id);

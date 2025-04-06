@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@/utils/supabase/server';
 import { getCurrentUser } from '@/app/api/actions';
+import { quizResultService } from '@/utils/weaviate/dataService';
 
 export async function GET() {
   try {
@@ -14,28 +14,37 @@ export async function GET() {
       );
     }
     
-    // Connect to Supabase
-    const supabase = await createClient();
+    console.log(`Fetching quiz results for user ${user.id}`);
     
-    // Fetch quiz results for the user
-    const { data, error } = await supabase
-      .from('quiz_results')
-      .select('*')
-      .eq('user_id', user.id)
-      .order('created_at', { ascending: false });
+    // Fetch quiz results for the user from Weaviate
+    const results = await quizResultService.getByUserId(user.id.toString());
     
-    if (error) {
-      console.error('Error fetching quiz results:', error);
-      
-      return NextResponse.json(
-        { error: error.message }, 
-        { status: 500 }
-      );
-    }
+    console.log(`Found ${results.length} quiz results for user ${user.id}`);
+    
+    // Format the results to match the expected format
+    const formattedResults = results.map(result => {
+      // Convert Weaviate format to match Supabase format for compatibility
+      return {
+        id: result.id || '',
+        quiz_id: result.quizId,
+        user_id: parseInt(result.userId),
+        score: result.score,
+        total_questions: result.totalQuestions,
+        feedback: result.feedback,
+        learning_option: result.learningOption,
+        strength_areas: result.strengthAreas,
+        weakness_areas: result.weaknessAreas,
+        created_at: result.timestamp instanceof Date 
+          ? result.timestamp.toISOString() 
+          : typeof result.timestamp === 'string' 
+            ? result.timestamp 
+            : new Date().toISOString()
+      };
+    });
     
     return NextResponse.json({ 
       success: true,
-      results: data 
+      results: formattedResults 
     });
   } catch (error) {
     console.error('Error in quiz results user API route:', error);

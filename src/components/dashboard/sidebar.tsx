@@ -83,12 +83,12 @@ export function Sidebar({ className }: SidebarProps) {
   };
 
   return (
-    <div className={cn("pb-12 w-64 bg-teal-800", className)}>
+    <div className={cn("pb-12 w-64 bg-black border-r border-white/10", className)}>
       <div className="space-y-4 py-4">
         <div className="px-4 py-2">
           <Button
             variant="ghost"
-            className="w-full justify-start bg-teal-700/50 hover:bg-teal-700/70 text-white"
+            className="w-full justify-start bg-gray-900/50 hover:bg-gray-800 text-white"
             onClick={() => setIsModalOpen(true)}
           >
             <MessageSquareIcon className="mr-2 h-4 w-4" />
@@ -97,7 +97,7 @@ export function Sidebar({ className }: SidebarProps) {
 
           <Button
             variant="ghost"
-            className="w-full justify-start bg-teal-700/50 hover:bg-teal-700/70 text-white mt-2"
+            className="w-full justify-start bg-gray-900/50 hover:bg-gray-800 text-white mt-2"
             asChild
           >
             <Link href="/dashboard/mindmap">
@@ -123,7 +123,7 @@ export function Sidebar({ className }: SidebarProps) {
                       <Button
                         key={conversation.id}
                         variant="ghost"
-                        className="w-full justify-start text-white/80 hover:bg-teal-700/50 hover:text-white"
+                        className="w-full justify-start text-white/80 hover:bg-gray-800 hover:text-white"
                         asChild
                       >
                         <Link

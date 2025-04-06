@@ -42,11 +42,15 @@ export default function SignIn() {
     setError(null);
 
     try {
+      console.log("Starting login for:", data.email);
       const response = await login(data);
+      console.log("Login response:", response);
 
       if (response.success) {
+        console.log("Login successful, redirecting to dashboard");
         router.replace("/dashboard");
       } else {
+        console.error("Login failed:", response.error);
         setError(response.error || "Invalid email or password");
         toast.error("Error during signing in. Please try again.");
       }
@@ -59,15 +63,15 @@ export default function SignIn() {
   };
 
   return (
-    <div className="flex min-h-screen bg-teal-800">
+    <div className="flex min-h-screen bg-black">
       <div className="flex w-full flex-col md:flex-row">
         {/* Left panel */}
         <div className="w-full p-8 md:w-1/2 md:p-12">
           <div className="mb-6 flex items-center">
-            <div className="mr-2 flex h-8 w-8 items-center justify-center rounded-full bg-white">
+            <div className="mr-2 flex h-8 w-8 items-center justify-center rounded-full bg-slate-800 border border-slate-700">
               <svg
                 viewBox="0 0 24 24"
-                className="h-5 w-5 text-teal-800"
+                className="h-5 w-5 text-white"
                 fill="currentColor"
               >
                 <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 16c-3.31 0-6-2.69-6-6s2.69-6 6-6 6 2.69 6 6-2.69 6-6 6z" />
@@ -98,7 +102,7 @@ export default function SignIn() {
               <Input
                 id="email"
                 type="email"
-                className="h-12 bg-white/10 text-white placeholder:text-white/50 focus:border-white focus:ring-white"
+                className="h-12 bg-slate-900 border-slate-700 text-white placeholder:text-white/50 focus:border-slate-600 focus:ring-slate-600"
                 {...register("email", {
                   required: "Email is required",
                   pattern: {
@@ -122,7 +126,7 @@ export default function SignIn() {
                 <Input
                   id="password"
                   type={showPassword ? "password" : "text"}
-                  className="h-12 bg-white/10 text-white placeholder:text-white/50 focus:border-white focus:ring-white"
+                  className="h-12 bg-slate-900 border-slate-700 text-white placeholder:text-white/50 focus:border-slate-600 focus:ring-slate-600"
                   {...register("password", {
                     required: "Password is required",
                     minLength: {
@@ -147,7 +151,7 @@ export default function SignIn() {
 
             <Button
               type="submit"
-              className="h-12 w-full bg-white text-teal-800 hover:bg-white/90"
+              className="h-12 w-full bg-slate-800 text-white hover:bg-slate-700"
               disabled={isLoading}
             >
               {isLoading ? "Signing in..." : "Login"}
@@ -169,14 +173,14 @@ export default function SignIn() {
         </div>
 
         {/* Right panel - AI assistant preview */}
-        <div className="hidden w-1/2 bg-teal-700 p-12 md:block">
+        <div className="hidden w-1/2 bg-slate-900 p-12 md:block">
           <div className="mb-8 text-3xl font-bold text-white">
             Your personalized AI Learning Assistant!
           </div>
 
-          <div className="rounded-lg bg-teal-600/50 p-6">
+          <div className="rounded-lg bg-slate-800 p-6">
             <div className="mb-4 flex items-center">
-              <div className="mr-2 flex h-6 w-6 items-center justify-center rounded-full bg-white/20">
+              <div className="mr-2 flex h-6 w-6 items-center justify-center rounded-full bg-slate-700">
                 <svg
                   viewBox="0 0 24 24"
                   className="h-4 w-4 text-white"
@@ -188,20 +192,20 @@ export default function SignIn() {
               </div>
               <span className="text-sm font-medium text-white">FORGE</span>
               <div className="ml-auto text-xs text-white/70">02:30:00</div>
-              <div className="ml-2 h-6 w-6 rounded-full bg-white"></div>
+              <div className="ml-2 h-6 w-6 rounded-full bg-slate-700 border border-slate-600"></div>
             </div>
 
             <div className="text-center">
               <p className="mb-4 text-white">
                 What would you like to learn today?
               </p>
-              <div className="relative mx-auto w-full max-w-xs rounded bg-teal-500/50 px-4 py-2">
+              <div className="relative mx-auto w-full max-w-xs rounded bg-slate-700 px-4 py-2">
                 <p className="text-white/70">Enter a topic</p>
                 <div className="absolute right-2 top-1/2 flex -translate-y-1/2 space-x-1">
-                  <div className="flex h-5 w-5 items-center justify-center rounded-full bg-white/20">
+                  <div className="flex h-5 w-5 items-center justify-center rounded-full bg-slate-600">
                     <span className="text-xs text-white">+</span>
                   </div>
-                  <div className="flex h-5 w-5 items-center justify-center rounded-full bg-white/20">
+                  <div className="flex h-5 w-5 items-center justify-center rounded-full bg-slate-600">
                     <span className="text-xs text-white">-</span>
                   </div>
                 </div>

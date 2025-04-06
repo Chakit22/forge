@@ -71,7 +71,6 @@ export default function ConversationPage({
   const [error, setError] = useState<string | null>(null);
   const [timeLeft, setTimeLeft] = useState(0);
   const [isEndSessionDialogOpen, setIsEndSessionDialogOpen] = useState(false);
-  const [isFullFocus, setIsFullFocus] = useState(false);
   const [isTyping, setIsTyping] = useState(false);
   const [attachments, setAttachments] = useState<FileAttachment[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -806,20 +805,14 @@ export default function ConversationPage({
   }
 
   return (
-    <div
-      className={`min-h-screen bg-teal-800 flex flex-col ${
-        isFullFocus ? "h-screen overflow-hidden" : ""
-      }`}
-    >
+    <div className="min-h-screen bg-black flex flex-col">
       {/* Header with timer */}
-      <header className="flex items-center justify-between p-4 bg-teal-800 border-b border-teal-700">
+      <header className="flex items-center justify-between p-4 bg-black border-b border-white/10">
         <div className="flex items-center">
           <Button
             variant="ghost"
             className="text-white p-0 mr-2"
-            onClick={() =>
-              isFullFocus ? setIsFullFocus(false) : router.push("/dashboard")
-            }
+            onClick={() => router.push("/dashboard")}
           >
             <ArrowLeftIcon className="h-6 w-6" />
           </Button>
@@ -834,87 +827,13 @@ export default function ConversationPage({
         </div>
 
         <div className="flex items-center gap-3">
-          {/* Add a debugging button */}
-          <Button
-            variant="ghost"
-            size="sm"
-            className="text-white hover:bg-red-600/20"
-            onClick={() => {
-              // Clear all tracking state
-              if (typeof window !== "undefined") {
-                window.__conversationEventsDispatched = new Set();
-                // Clear local refs
-                hasInitializedRef.current = false;
-                hasLoadedFromStorageRef.current = false;
-                // Clear local storage items
-                localStorage.removeItem(
-                  `conversation_${unwrappedParams.id}_messages`
-                );
-                console.log("Cleared all conversation tracking state");
-                toast.success("Cleared message state - refreshing page");
-                // Refresh the page
-                window.location.reload();
-              }
-            }}
-          >
-            <RefreshCcwIcon className="h-4 w-4 mr-1" />
-            Reset
-          </Button>
-
-          <Button
-            variant="ghost"
-            size="sm"
-            className="text-white hover:bg-orange-600/20"
-            onClick={async () => {
-              try {
-                // Call API to delete welcome messages
-                const response = await fetch(
-                  `/api/message-sync/cleanup-welcome?conversationId=${unwrappedParams.id}`,
-                  {
-                    method: "DELETE",
-                  }
-                );
-
-                if (!response.ok) {
-                  throw new Error(
-                    `Failed to clean up welcome messages: ${response.status}`
-                  );
-                }
-
-                const data = await response.json();
-                toast.success(
-                  `Cleaned up ${data.deleted || 0} welcome messages`
-                );
-
-                // Refresh the page to show updated state
-                window.location.reload();
-              } catch (error) {
-                console.error("Error cleaning up welcome messages:", error);
-                toast.error("Failed to clean up welcome messages");
-              }
-            }}
-          >
-            <TrashIcon className="h-4 w-4 mr-1" />
-            Clean DB
-          </Button>
-
-          <div className="text-xl font-medium text-white bg-teal-700/50 px-3 py-1 rounded-md">
+          <div className="text-xl font-medium text-white bg-slate-900 px-3 py-1 rounded-md">
             {formatTime(timeLeft)}
           </div>
           <Button
             variant="ghost"
             size="sm"
-            className="text-white hover:bg-teal-600/20"
-            onClick={handleGenerateQuiz}
-            disabled={isGeneratingQuiz || messages.length < 2}
-          >
-            <QuizIcon className="h-5 w-5 mr-1" />
-            Quiz Me
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="text-white hover:bg-teal-600/20"
+            className="text-white hover:bg-slate-800"
             onClick={handleGenerateQuiz}
             disabled={isGeneratingQuiz || messages.length < 2}
           >
@@ -929,37 +848,27 @@ export default function ConversationPage({
           >
             End Session
           </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="text-white hover:bg-teal-600/20"
-            onClick={() => setIsFullFocus(!isFullFocus)}
-          >
-            {isFullFocus ? "Exit Focus" : "Focus Mode"}
-          </Button>
         </div>
       </header>
 
-      {/* Session summary - hidden in focus mode */}
-      {!isFullFocus && (
-        <div className="bg-teal-700/30 p-3 text-center">
-          <p className="text-white/90">
-            <span className="font-medium">Summary:</span> {conversation.summary}
-          </p>
-        </div>
-      )}
+      {/* Session summary */}
+      <div className="bg-slate-900 p-3 text-center">
+        <p className="text-white">
+          <span className="font-medium">Summary:</span> {conversation.summary}
+        </p>
+      </div>
 
       {/* Main chat area */}
       <main className="flex-1 flex flex-col p-4 md:p-8 overflow-hidden">
-        <div className="flex-1 mb-4 overflow-auto bg-teal-700/50 rounded-lg p-4">
+        <div className="flex-1 mb-4 overflow-auto bg-slate-800 rounded-lg p-4">
           <div className="flex flex-col gap-4">
             {messages.map((message, index) => (
               <div
                 key={index}
                 className={`p-4 rounded-lg ${
                   message.role === "user"
-                    ? "bg-blue-500/20 ml-auto max-w-[80%]"
-                    : "bg-teal-600/30 mr-auto max-w-[80%]"
+                    ? "bg-slate-700 ml-auto max-w-[80%]"
+                    : "bg-slate-900 border border-white/10 mr-auto max-w-[80%]"
                 }`}
               >
                 {message.role === "assistant" ? (
@@ -970,60 +879,66 @@ export default function ConversationPage({
                         a: (props) => (
                           <a
                             {...props}
-                            className="text-teal-300 underline hover:text-teal-200"
+                            className="text-white underline hover:text-slate-300"
                             target="_blank"
                             rel="noopener noreferrer"
                           />
                         ),
                         ul: (props) => (
-                          <ul {...props} className="list-disc pl-5 space-y-1" />
+                          <ul {...props} className="list-disc pl-5 space-y-1 text-white" />
                         ),
                         ol: (props) => (
                           <ol
                             {...props}
-                            className="list-decimal pl-5 space-y-1"
+                            className="list-decimal pl-5 space-y-1 text-white"
                           />
                         ),
                         code: ({ inline, ...props }: CodeProps) =>
                           inline ? (
                             <code
                               {...props}
-                              className="bg-teal-700/50 px-1 py-0.5 rounded text-sm"
+                              className="bg-slate-700 px-1 py-0.5 rounded text-sm text-white"
                             />
                           ) : (
                             <code
                               {...props}
-                              className="block bg-teal-700/70 p-2 rounded-md overflow-x-auto text-sm my-2"
+                              className="block bg-slate-700 p-2 rounded-md overflow-x-auto text-sm my-2 text-white"
                             />
                           ),
                         pre: (props) => (
                           <pre
                             {...props}
-                            className="bg-transparent p-0 overflow-x-auto"
+                            className="bg-transparent p-0 overflow-x-auto text-white"
                           />
                         ),
                         h1: (props) => (
                           <h1
                             {...props}
-                            className="text-xl font-bold mt-4 mb-2"
+                            className="text-xl font-bold mt-4 mb-2 text-white"
                           />
                         ),
                         h2: (props) => (
                           <h2
                             {...props}
-                            className="text-lg font-bold mt-3 mb-1"
+                            className="text-lg font-bold mt-3 mb-1 text-white"
                           />
                         ),
                         h3: (props) => (
                           <h3
                             {...props}
-                            className="text-md font-bold mt-2 mb-1"
+                            className="text-md font-bold mt-2 mb-1 text-white"
                           />
                         ),
                         blockquote: (props) => (
                           <blockquote
                             {...props}
-                            className="border-l-2 border-teal-400 pl-3 italic"
+                            className="border-l-2 border-white/30 pl-3 italic text-white"
+                          />
+                        ),
+                        p: (props) => (
+                          <p
+                            {...props}
+                            className="text-white"
                           />
                         ),
                       }}
@@ -1043,7 +958,7 @@ export default function ConversationPage({
             ))}
 
             {isTyping && (
-              <div className="self-start bg-teal-600/50 text-white rounded-lg p-3 max-w-md">
+              <div className="self-start bg-slate-900 border border-white/10 text-white rounded-lg p-3 max-w-md">
                 <div className="flex space-x-2">
                   <div className="w-2 h-2 bg-white rounded-full animate-bounce"></div>
                   <div
@@ -1060,7 +975,7 @@ export default function ConversationPage({
 
             {/* Display Quiz Results when available */}
             {showQuizResults && (
-              <div className="bg-teal-600/30 p-4 rounded-lg self-start max-w-[95%] w-full overflow-hidden">
+              <div className="bg-slate-900 border border-white/10 p-4 rounded-lg self-start max-w-[95%] w-full overflow-hidden">
                 <div className="flex items-center justify-between mb-3">
                   <h3 className="text-xl font-semibold text-white">
                     Last Quiz Results
@@ -1068,7 +983,7 @@ export default function ConversationPage({
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="text-white/70 hover:text-white hover:bg-teal-600/20 h-8 px-2"
+                    className="text-white/70 hover:text-white hover:bg-slate-700 h-8 px-2"
                     onClick={() => setShowQuizResults(false)}
                   >
                     <span className="sr-only">Close</span>
@@ -1077,11 +992,11 @@ export default function ConversationPage({
                 </div>
 
                 {quizFeedback && (
-                  <div className="mb-4 overflow-y-auto max-h-[300px] bg-teal-700/50 p-4 rounded-md">
-                    <h4 className="text-lg font-medium text-white mb-2 sticky top-0 bg-teal-700/70 py-1">
+                  <div className="mb-4 overflow-y-auto max-h-[300px] bg-slate-700 p-4 rounded-md">
+                    <h4 className="text-lg font-medium text-white mb-2 sticky top-0 bg-slate-700/90 py-1">
                       Feedback
                     </h4>
-                    <div className="whitespace-pre-line text-white/90">
+                    <div className="whitespace-pre-line text-white">
                       {quizFeedback}
                     </div>
                   </div>
@@ -1089,11 +1004,11 @@ export default function ConversationPage({
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-3">
                   {quizStrengths.length > 0 && (
-                    <div className="bg-teal-700/40 p-3 rounded-md overflow-y-auto max-h-[200px]">
-                      <h4 className="text-lg font-medium text-white mb-2 flex items-center sticky top-0 bg-teal-700/70 py-1">
+                    <div className="bg-slate-800 p-3 rounded-md overflow-y-auto max-h-[200px]">
+                      <h4 className="text-lg font-medium text-white mb-2 flex items-center sticky top-0 bg-slate-800/90 py-1">
                         <span className="mr-2">💪</span> Strengths
                       </h4>
-                      <ul className="list-disc pl-5 space-y-1 text-green-200">
+                      <ul className="list-disc pl-5 space-y-1 text-white">
                         {quizStrengths.map((strength, i) => (
                           <li key={i} className="break-words">
                             {strength}
@@ -1104,11 +1019,11 @@ export default function ConversationPage({
                   )}
 
                   {quizWeaknesses.length > 0 && (
-                    <div className="bg-teal-700/40 p-3 rounded-md overflow-y-auto max-h-[200px]">
-                      <h4 className="text-lg font-medium text-white mb-2 flex items-center sticky top-0 bg-teal-700/70 py-1">
+                    <div className="bg-slate-800 p-3 rounded-md overflow-y-auto max-h-[200px]">
+                      <h4 className="text-lg font-medium text-white mb-2 flex items-center sticky top-0 bg-slate-800/90 py-1">
                         <span className="mr-2">🎯</span> Areas to Improve
                       </h4>
-                      <ul className="list-disc pl-5 space-y-1 text-yellow-200">
+                      <ul className="list-disc pl-5 space-y-1 text-white">
                         {quizWeaknesses.map((weakness, i) => (
                           <li key={i} className="break-words">
                             {weakness}
@@ -1127,13 +1042,13 @@ export default function ConversationPage({
 
         {/* Attachment Display */}
         {attachments.length > 0 && (
-          <div className="mb-2 p-2 bg-teal-700/30 rounded-lg">
+          <div className="mb-2 p-2 bg-slate-900 rounded-lg">
             <p className="text-white text-xs mb-2">Attachments:</p>
             <div className="flex flex-wrap gap-2">
               {attachments.map((file) => (
                 <div
                   key={file.id}
-                  className="flex items-center bg-teal-600/60 rounded px-2 py-1"
+                  className="flex items-center bg-slate-800 rounded px-2 py-1"
                 >
                   <span className="text-white text-xs truncate max-w-[150px]">
                     {file.name}
@@ -1154,7 +1069,7 @@ export default function ConversationPage({
         <div className="flex gap-2">
           <Textarea
             placeholder="Type your message..."
-            className="bg-teal-600/50 border-0 text-white resize-none h-16 placeholder:text-white/70"
+            className="bg-slate-900 border-slate-700 text-white resize-none h-16 placeholder:text-white/70 focus-visible:ring-slate-700 focus-visible:border-slate-700"
             value={inputMessage}
             onChange={(e) => setInputMessage(e.target.value)}
             onKeyDown={(e) => {
@@ -1167,7 +1082,7 @@ export default function ConversationPage({
           <div className="flex flex-col gap-2">
             <Button
               onClick={() => fileInputRef.current?.click()}
-              className="bg-teal-600 hover:bg-teal-500 text-white h-8 px-2 flex-1"
+              className="bg-slate-800 hover:bg-slate-700 text-white h-8 px-2 flex-1"
               type="button"
             >
               <PaperclipIcon className="h-5 w-5" />
@@ -1175,7 +1090,7 @@ export default function ConversationPage({
 
             <Button
               onClick={handleSendMessage}
-              className="bg-teal-600 hover:bg-teal-500 text-white h-8 px-2 flex-1"
+              className="bg-slate-800 hover:bg-slate-700 text-white h-8 px-2 flex-1"
               disabled={
                 (!inputMessage.trim() && attachments.length === 0) || isTyping
               }
@@ -1208,22 +1123,12 @@ export default function ConversationPage({
         onQuizComplete={handleQuizResults}
       />
 
-      {/* Quiz Modal */}
-      <QuizModal
-        open={isQuizModalOpen}
-        onOpenChange={setIsQuizModalOpen}
-        quiz={quiz}
-        isLoading={isGeneratingQuiz}
-        learningOption={conversation?.learning_option || "unknown"}
-        onQuizComplete={handleQuizResults}
-      />
-
       {/* End Session Dialog */}
       <Dialog
         open={isEndSessionDialogOpen}
         onOpenChange={setIsEndSessionDialogOpen}
       >
-        <DialogContent className="bg-teal-700 text-white border-teal-600">
+        <DialogContent className="bg-black text-white border-slate-800 shadow-slate-900">
           <DialogHeader>
             <DialogTitle>End Learning Session?</DialogTitle>
             <DialogDescription className="text-white/70">
@@ -1236,7 +1141,7 @@ export default function ConversationPage({
             <Button
               variant="ghost"
               onClick={() => setIsEndSessionDialogOpen(false)}
-              className="text-white hover:bg-teal-600/50"
+              className="text-white hover:bg-slate-900"
             >
               Cancel
             </Button>
@@ -1250,7 +1155,7 @@ export default function ConversationPage({
             <Button
               variant="default"
               onClick={handleSessionEnd}
-              className="bg-teal-600 hover:bg-teal-500"
+              className="bg-slate-800 hover:bg-slate-700 text-white"
             >
               Save & Exit
             </Button>
@@ -1363,51 +1268,6 @@ function QuizIcon(props: React.SVGProps<SVGSVGElement>) {
       <line x1="18" y1="5" x2="18" y2="8" />
       <line x1="18" y1="10" x2="18" y2="13" />
       <rect x="2" y="2" width="20" height="20" rx="5" />
-    </svg>
-  );
-}
-
-function RefreshCcwIcon(props: React.SVGProps<SVGSVGElement>) {
-  return (
-    <svg
-      {...props}
-      xmlns="http://www.w3.org/2000/svg"
-      width="24"
-      height="24"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
-      <path d="M3 3v5h5" />
-      <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16" />
-      <path d="M16 21h5v-5" />
-    </svg>
-  );
-}
-
-function TrashIcon(props: React.SVGProps<SVGSVGElement>) {
-  return (
-    <svg
-      {...props}
-      xmlns="http://www.w3.org/2000/svg"
-      width="24"
-      height="24"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M3 6h18" />
-      <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
-      <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
-      <line x1="10" y1="11" x2="10" y2="17" />
-      <line x1="14" y1="11" x2="14" y2="17" />
     </svg>
   );
 }

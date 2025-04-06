@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@/utils/supabase/server';
 import { getCurrentUser } from '@/app/api/actions';
+import { quizResultService } from '@/utils/weaviate/dataService';
 
 export async function GET(
   request: Request,
@@ -16,6 +16,8 @@ export async function GET(
       );
     }
     
+    console.log(`Fetching responses for quiz result ID: ${resultId}`);
+    
     // Get the current user
     const { success, user, error: userError } = await getCurrentUser();
     
@@ -26,51 +28,51 @@ export async function GET(
       );
     }
     
-    // Connect to Supabase
-    const supabase = await createClient();
+    // Fetch the quiz result from Weaviate
+    const result = await quizResultService.getById(resultId);
     
-    // Verify the quiz result belongs to the user
-    const { data: resultData, error: resultError } = await supabase
-      .from('quiz_results')
-      .select('user_id')
-      .eq('id', resultId)
-      .single();
-    
-    if (resultError) {
-      console.error('Error fetching quiz result:', resultError);
-      
+    // Verify the quiz result exists and belongs to the user
+    if (!result) {
+      console.error(`Quiz result not found with ID: ${resultId}`);
       return NextResponse.json(
-        { error: resultError.message }, 
-        { status: 500 }
+        { error: 'Quiz result not found' }, 
+        { status: 404 }
       );
     }
     
-    if (!resultData || resultData.user_id !== user.id) {
+    if (result.userId !== user.id.toString()) {
+      console.error(`User ${user.id} is not authorized to access quiz result ${resultId}`);
       return NextResponse.json(
         { error: 'Not authorized to access this quiz result' }, 
         { status: 403 }
       );
     }
     
-    // Fetch quiz responses for the result
-    const { data, error } = await supabase
-      .from('quiz_responses')
-      .select('*')
-      .eq('result_id', resultId)
-      .order('question_id', { ascending: true });
-    
-    if (error) {
-      console.error('Error fetching quiz responses:', error);
-      
-      return NextResponse.json(
-        { error: error.message }, 
-        { status: 500 }
-      );
+    // Extract the responses from the quiz result object
+    if (!result.responses || !Array.isArray(result.responses)) {
+      console.log(`No responses found for quiz result ID: ${resultId}`);
+      return NextResponse.json({ 
+        success: true,
+        responses: [] 
+      });
     }
+    
+    // Format the responses to match the expected format
+    const formattedResponses = result.responses.map((response, index) => ({
+      id: index, // Generate an ID for each response
+      result_id: parseInt(resultId) || 0,
+      question_id: response.questionId,
+      question_text: response.question,
+      selected_option_index: response.selectedOptionIndex,
+      correct_option_index: response.correctOptionIndex,
+      is_correct: response.isCorrect
+    }));
+    
+    console.log(`Returning ${formattedResponses.length} responses for quiz result ID: ${resultId}`);
     
     return NextResponse.json({ 
       success: true,
-      responses: data 
+      responses: formattedResponses 
     });
   } catch (error) {
     console.error('Error in quiz responses API route:', error);

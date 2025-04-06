@@ -97,7 +97,7 @@ export default function QuizModal({
     }
   };
 
-  const saveQuizResults = async (finalScore: number, totalQs: number) => {
+  const saveQuizResults = async (finalScore: number, totalQs: number, retryCount = 0) => {
     if (!user || !quiz || !quiz.questions || quiz.questions.length === 0)
       return;
 
@@ -114,6 +114,16 @@ export default function QuizModal({
         learningOption,
       };
 
+      console.log('Sending quiz results:', {
+        quizTitle: quizResultData.quizTitle,
+        userId: quizResultData.userId,
+        score: quizResultData.score,
+        totalQuestions: quizResultData.totalQuestions,
+        selectedOptionsCount: quizResultData.selectedOptions.length,
+        questionsCount: quizResultData.questions.length,
+        learningOption: quizResultData.learningOption
+      });
+
       const response = await fetch("/api/quiz-results", {
         method: "POST",
         headers: {
@@ -122,30 +132,68 @@ export default function QuizModal({
         body: JSON.stringify(quizResultData),
       });
 
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ details: "Failed to parse error response" }));
+        console.error('Error response from API:', {
+          status: response.status,
+          statusText: response.statusText,
+          errorData
+        });
+        throw new Error(errorData.details || `Failed to save quiz results (${response.status})`);
+      }
+
       const data = await response.json();
+      console.log('API response data:', data);
 
       if (data.success && data.result) {
-        setFeedback(data.result.feedback || "");
-        setStrengths(data.result.strength_areas || []);
-        setWeaknesses(data.result.weakness_areas || []);
+        // Extract feedback and analysis data from the result
+        const resultFeedback = data.result.feedback || "";
+        const resultStrengths = data.result.strength_areas || [];
+        const resultWeaknesses = data.result.weakness_areas || [];
+        
+        console.log('Received feedback and analysis:', {
+          feedbackLength: resultFeedback.length,
+          strengthsCount: resultStrengths.length,
+          weaknessesCount: resultWeaknesses.length
+        });
+        
+        setFeedback(resultFeedback);
+        setStrengths(resultStrengths);
+        setWeaknesses(resultWeaknesses);
         toast.success("Quiz results saved!");
 
         // Send results back to parent component
         if (onQuizComplete) {
           onQuizComplete(
-            data.result.feedback || "",
-            data.result.strength_areas || [],
-            data.result.weakness_areas || []
+            resultFeedback,
+            resultStrengths,
+            resultWeaknesses
           );
         }
       } else {
-        toast.error("Failed to save quiz results");
+        console.error('Invalid response format:', data);
+        toast.error("Saved quiz results but couldn't load feedback");
       }
     } catch (error) {
       console.error("Error saving quiz results:", error);
-      toast.error("Error saving quiz results");
+      
+      // Implement a simple retry mechanism for transient errors
+      if (retryCount < 2) {
+        console.log(`Retrying save operation (attempt ${retryCount + 1} of 2)...`);
+        toast.info("Retrying to save results...");
+        
+        // Wait a moment before retrying
+        setTimeout(() => {
+          saveQuizResults(finalScore, totalQs, retryCount + 1);
+        }, 2000);
+        return;
+      }
+      
+      toast.error(error instanceof Error ? error.message : "Error saving quiz results");
     } finally {
-      setIsSavingResults(false);
+      if (retryCount === 0) {
+        setIsSavingResults(false);
+      }
     }
   };
 
@@ -173,7 +221,7 @@ export default function QuizModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="bg-teal-700 text-white border-teal-600 max-w-3xl max-h-[90vh] overflow-hidden flex flex-col">
+      <DialogContent className="bg-black text-white border-gray-800 max-w-3xl max-h-[90vh] overflow-hidden flex flex-col">
         {isLoading || isSavingResults ? (
           <>
             <DialogHeader>
@@ -205,264 +253,184 @@ export default function QuizModal({
             <Tabs
               value={activeTab}
               onValueChange={setActiveTab}
-              className="mt-6 flex-1 flex flex-col overflow-hidden"
+              className="mt-4 flex-1 flex flex-col overflow-hidden"
             >
-              <TabsList className="bg-teal-600/30 w-full">
+              <TabsList className="w-full justify-start bg-black border-b border-white/10">
                 <TabsTrigger
                   value="results"
-                  className="data-[state=active]:bg-teal-500 text-white data-[state=active]:text-white"
+                  className="data-[state=active]:bg-white/10 data-[state=active]:text-white text-white/70"
                 >
-                  Questions
+                  Results
                 </TabsTrigger>
                 <TabsTrigger
                   value="feedback"
-                  className="data-[state=active]:bg-teal-500 text-white data-[state=active]:text-white"
+                  disabled={!feedback}
+                  className="data-[state=active]:bg-white/10 data-[state=active]:text-white text-white/70 disabled:opacity-50"
                 >
                   Feedback
-                </TabsTrigger>
-                <TabsTrigger
-                  value="analysis"
-                  className="data-[state=active]:bg-teal-500 text-white data-[state=active]:text-white"
-                >
-                  Analysis
                 </TabsTrigger>
               </TabsList>
 
               <TabsContent
                 value="results"
-                className="mt-4 space-y-4 overflow-y-auto pr-2 flex-1"
+                className="px-1 py-4 flex-1 overflow-auto data-[state=active]:flex data-[state=active]:flex-col"
               >
-                {quiz?.questions?.map((question, index) => (
-                  <div key={index} className="bg-teal-600/30 rounded-lg p-4">
-                    <p className="font-medium mb-2">
-                      Question {index + 1}: {question.question}
-                    </p>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mb-3">
-                      {question.options.map((option, optionIndex) => (
-                        <div
-                          key={optionIndex}
-                          className={`p-2 rounded-md flex items-center ${
-                            optionIndex === question.correctAnswerIndex
-                              ? "bg-green-500/30 border border-green-400"
-                              : selectedOptions[index] === optionIndex &&
-                                selectedOptions[index] !==
-                                  question.correctAnswerIndex
-                              ? "bg-red-500/30 border border-red-400"
-                              : "bg-teal-600/20"
-                          }`}
-                        >
+                <div className="space-y-4">
+                  {quiz?.questions?.map((question, index) => (
+                    <div
+                      key={index}
+                      className={`p-4 rounded-md ${
+                        selectedOptions[index] === question.correctAnswerIndex
+                          ? "bg-white/10 border border-white/20"
+                          : "bg-black/50 border border-red-500/30"
+                      }`}
+                    >
+                      <p className="font-medium mb-2">
+                        {index + 1}. {question.question}
+                      </p>
+                      <div className="pl-4 space-y-1">
+                        {question.options.map((option, optIndex) => (
                           <div
-                            className={`mr-2 flex-shrink-0 w-5 h-5 rounded-full flex items-center justify-center border ${
-                              selectedOptions[index] === optionIndex
-                                ? "border-white bg-white/20"
-                                : "border-white/50"
+                            key={optIndex}
+                            className={`p-2 rounded ${
+                              optIndex === question.correctAnswerIndex
+                                ? "bg-white/20 text-white"
+                                : selectedOptions[index] === optIndex
+                                ? "bg-red-900/30 text-white/80"
+                                : "text-white/80"
                             }`}
                           >
-                            {selectedOptions[index] === optionIndex && (
-                              <div className="w-2 h-2 bg-white rounded-full"></div>
+                            {option}
+                            {optIndex === question.correctAnswerIndex && (
+                              <span className="ml-2">✓</span>
                             )}
+                            {selectedOptions[index] === optIndex &&
+                              optIndex !== question.correctAnswerIndex && (
+                                <span className="ml-2">✗</span>
+                              )}
                           </div>
-                          <span className="text-sm">{option}</span>
-                          {optionIndex === question.correctAnswerIndex && (
-                            <span className="ml-2 text-xs bg-green-500/30 px-2 py-0.5 rounded-full">
-                              Correct
-                            </span>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                    {quizComplete && selectedOptions[index] !== undefined && (
-                      <div className="mt-2 text-xs bg-teal-800/50 p-2 rounded">
-                        <p className="font-medium mb-1">Explanation:</p>
-                        <p>{question.explanation}</p>
+                        ))}
                       </div>
-                    )}
-                  </div>
-                ))}
+                    </div>
+                  ))}
+                </div>
               </TabsContent>
 
               <TabsContent
                 value="feedback"
-                className="mt-4 overflow-y-auto pr-2 flex-1"
+                className="mt-0 px-1 py-4 flex-1 overflow-auto"
               >
                 {feedback ? (
-                  <div className="bg-teal-600/30 rounded-lg p-4">
-                    <h3 className="text-lg font-medium mb-3">
-                      Personalized Feedback
-                    </h3>
-                    <div className="whitespace-pre-line">{feedback}</div>
+                  <div className="space-y-6">
+                    <div className="whitespace-pre-line bg-white/5 p-4 rounded-md">
+                      {feedback}
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="bg-white/5 p-4 rounded-md">
+                        <h3 className="font-medium text-lg mb-2 flex items-center">
+                          <span className="mr-2">💪</span> Strengths
+                        </h3>
+                        <ul className="list-disc pl-5 space-y-1">
+                          {strengths.map((strength, i) => (
+                            <li key={i}>{strength}</li>
+                          ))}
+                        </ul>
+                      </div>
+
+                      <div className="bg-white/5 p-4 rounded-md">
+                        <h3 className="font-medium text-lg mb-2 flex items-center">
+                          <span className="mr-2">🎯</span> Areas to Improve
+                        </h3>
+                        <ul className="list-disc pl-5 space-y-1">
+                          {weaknesses.map((weakness, i) => (
+                            <li key={i}>{weakness}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    </div>
                   </div>
                 ) : (
-                  <div className="bg-teal-600/30 rounded-lg p-4 text-center">
-                    <p>
-                      Sign in to get personalized feedback on your performance
-                    </p>
+                  <div className="text-center py-8 text-white/70">
+                    Feedback not available.
                   </div>
                 )}
               </TabsContent>
-
-              <TabsContent
-                value="analysis"
-                className="mt-4 overflow-y-auto pr-2 flex-1"
-              >
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="bg-teal-600/30 rounded-lg p-4">
-                    <h3 className="text-lg font-medium mb-3 flex items-center">
-                      <span className="mr-2">💪</span> Your Strengths
-                    </h3>
-                    {strengths.length > 0 ? (
-                      <ul className="list-disc pl-5 space-y-2">
-                        {strengths.map((strength, i) => (
-                          <li key={i} className="text-green-200">
-                            {strength}
-                          </li>
-                        ))}
-                      </ul>
-                    ) : (
-                      <p className="text-sm">No strengths identified yet.</p>
-                    )}
-                  </div>
-
-                  <div className="bg-teal-600/30 rounded-lg p-4">
-                    <h3 className="text-lg font-medium mb-3 flex items-center">
-                      <span className="mr-2">🎯</span> Areas to Improve
-                    </h3>
-                    {weaknesses.length > 0 ? (
-                      <ul className="list-disc pl-5 space-y-2">
-                        {weaknesses.map((weakness, i) => (
-                          <li key={i} className="text-yellow-200">
-                            {weakness}
-                          </li>
-                        ))}
-                      </ul>
-                    ) : (
-                      <p className="text-sm">
-                        No areas for improvement identified yet.
-                      </p>
-                    )}
-                  </div>
-                </div>
-              </TabsContent>
             </Tabs>
 
-            <DialogFooter className="mt-6 gap-2">
+            <DialogFooter className="mt-4 flex justify-between">
               <Button
                 variant="outline"
-                onClick={() => onOpenChange(false)}
-                className="text-white border-white/30 hover:bg-white/10"
-              >
-                Close
-              </Button>
-              <Button
                 onClick={handleRestart}
-                className="bg-teal-600 hover:bg-teal-500 text-white"
+                className="bg-transparent border-white/20 text-white hover:bg-white/10"
               >
                 Restart Quiz
+              </Button>
+              <Button
+                onClick={() => onOpenChange(false)}
+                className="bg-white/20 text-white hover:bg-white/30"
+              >
+                Close
               </Button>
             </DialogFooter>
           </div>
         ) : (
-          // Question view
-          <div className="py-4">
+          // Quiz questions view
+          <>
             <DialogHeader>
-              <DialogTitle className="text-2xl font-bold text-white">
-                {quiz?.title}
+              <DialogTitle className="text-xl font-bold text-white">
+                {quiz?.title || "Quiz"}
               </DialogTitle>
-              <DialogDescription className="text-white/70 text-lg mt-2">
-                {quiz?.description}
+              <DialogDescription className="text-white/70">
+                Question {currentQuestionIndex + 1} of {totalQuestions}
               </DialogDescription>
             </DialogHeader>
 
-            <div className="mt-6">
-              <div className="flex justify-between items-center mb-4">
-                <span className="text-sm text-white/70">
-                  Question {currentQuestionIndex + 1} of {totalQuestions}
-                </span>
-                <span className="text-sm font-medium bg-teal-600/40 px-2 py-1 rounded">
-                  {Math.round(
-                    ((currentQuestionIndex + 1) / totalQuestions) * 100
-                  )}
-                  % Complete
-                </span>
-              </div>
-
-              {currentQuestion && (
-                <div className="space-y-4">
-                  <h3 className="text-lg font-medium">
-                    {currentQuestion.question}
-                  </h3>
-
-                  <div className="grid grid-cols-1 gap-3">
-                    {currentQuestion.options.map((option, optionIndex) => (
-                      <div
-                        key={optionIndex}
-                        className={`p-3 rounded-md cursor-pointer transition-all flex items-center ${
-                          selectedOptions[currentQuestionIndex] === optionIndex
-                            ? "bg-teal-500/30 border border-teal-400"
-                            : "bg-teal-600/20 hover:bg-teal-600/40"
-                        }`}
-                        onClick={() =>
-                          handleOptionSelect(currentQuestionIndex, optionIndex)
-                        }
-                      >
-                        <div
-                          className={`mr-3 flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center border ${
-                            selectedOptions[currentQuestionIndex] ===
-                            optionIndex
-                              ? "border-white bg-white/20"
-                              : "border-white/50"
-                          }`}
-                        >
-                          {selectedOptions[currentQuestionIndex] ===
-                            optionIndex && (
-                            <div className="w-3 h-3 bg-white rounded-full"></div>
-                          )}
-                        </div>
-                        <span>{option}</span>
-                      </div>
-                    ))}
-                  </div>
-
-                  {/* Don't show explanation during quiz, only after completion */}
-                  {hasAnsweredCurrentQuestion && quizComplete && (
-                    <div className="mt-4 bg-teal-600/30 p-3 rounded-md">
-                      <p className="font-medium mb-1">Explanation:</p>
-                      <p className="text-sm">{currentQuestion.explanation}</p>
-                    </div>
-                  )}
+            {currentQuestion && (
+              <div className="py-4">
+                <p className="text-lg font-medium mb-4 text-white">
+                  {currentQuestion.question}
+                </p>
+                <div className="space-y-2">
+                  {currentQuestion.options.map((option, index) => (
+                    <button
+                      key={index}
+                      className={`w-full text-left p-3 rounded-md transition-colors ${
+                        selectedOptions[currentQuestionIndex] === index
+                          ? "bg-white/20 text-white"
+                          : "bg-black/50 text-white/80 hover:bg-white/10"
+                      }`}
+                      onClick={() =>
+                        handleOptionSelect(currentQuestionIndex, index)
+                      }
+                    >
+                      {option}
+                    </button>
+                  ))}
                 </div>
-              )}
-            </div>
+              </div>
+            )}
 
-            <DialogFooter className="mt-6 gap-2">
+            <DialogFooter className="flex justify-between">
               <Button
                 variant="outline"
-                onClick={() => onOpenChange(false)}
-                className="text-white border-white/30 hover:bg-white/10"
+                onClick={handlePreviousQuestion}
+                disabled={currentQuestionIndex === 0}
+                className="bg-transparent border-white/20 text-white hover:bg-white/10 disabled:opacity-50"
               >
-                Cancel
+                Previous
               </Button>
-              <div className="flex-1 flex justify-between">
-                <Button
-                  variant="ghost"
-                  onClick={handlePreviousQuestion}
-                  disabled={currentQuestionIndex === 0}
-                  className="text-white hover:bg-teal-600/30 disabled:opacity-50"
-                >
-                  Previous
-                </Button>
-                <Button
-                  onClick={handleNextQuestion}
-                  disabled={!hasAnsweredCurrentQuestion}
-                  className="bg-teal-600 hover:bg-teal-500 text-white disabled:opacity-50"
-                >
-                  {currentQuestionIndex === totalQuestions - 1
-                    ? "Finish"
-                    : "Next"}
-                </Button>
-              </div>
+              <Button
+                onClick={handleNextQuestion}
+                disabled={!hasAnsweredCurrentQuestion}
+                className="bg-white/20 text-white hover:bg-white/30 disabled:opacity-50"
+              >
+                {currentQuestionIndex === totalQuestions - 1
+                  ? "Finish"
+                  : "Next"}
+              </Button>
             </DialogFooter>
-          </div>
+          </>
         )}
       </DialogContent>
     </Dialog>

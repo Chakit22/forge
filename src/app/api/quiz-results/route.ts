@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
 import { OpenAI } from 'openai';
-import { createClient } from '@/utils/supabase/server';
 import type { ChatCompletionMessageParam } from 'openai/resources';
 import { QuizQuestion } from '../quiz-generator/route';
+import { quizResultService } from '@/utils/weaviate/dataService';
 
 // Initialize OpenAI client
 const getOpenAIClient = () => {
@@ -241,49 +241,93 @@ async function identifyStrengthsAndWeaknesses(
   }
 }
 
-// Save quiz result to database
+// Save quiz result to database using Weaviate
 async function saveQuizResult(quizResult: QuizResult) {
-  const supabase = await createClient();
-  
-  // First save the main quiz result
-  const { data: resultData, error: resultError } = await supabase
-    .from('quiz_results')
-    .insert({
-      quiz_id: quizResult.quizId,
-      user_id: quizResult.userId,
-      score: quizResult.score,
-      total_questions: quizResult.totalQuestions,
-      feedback: quizResult.feedback,
-      learning_option: quizResult.learningOption,
-      strength_areas: quizResult.strengthAreas,
-      weakness_areas: quizResult.weaknessAreas
-    })
-    .select()
-    .single();
-  
-  if (resultError) {
-    console.error('Error saving quiz result:', resultError);
-    throw new Error(`Failed to save quiz result: ${resultError.message}`);
-  }
-  
-  // Then save each response
-  for (const response of quizResult.responses) {
-    const { error: responseError } = await supabase
-      .from('quiz_responses')
-      .insert({
-        result_id: resultData.id,
-        question_id: response.questionId,
-        question_text: response.question,
-        selected_option_index: response.selectedOptionIndex,
-        correct_option_index: response.correctOptionIndex,
-        is_correct: response.isCorrect
-      });
+  try {
+    console.log('Starting to save quiz result to Weaviate');
+    console.log('Quiz result data to save:', JSON.stringify({
+      ...quizResult,
+      responses: quizResult.responses ? `${quizResult.responses.length} responses` : 'No responses',
+      feedback: quizResult.feedback?.substring(0, 50) + '...',
+    }));
     
-    if (responseError) {
-      console.error('Error saving quiz response:', responseError);
-      // We'll continue saving other responses even if one fails
+    // Convert userId to string for Weaviate
+    const weaviateQuizResult = {
+      ...quizResult,
+      userId: quizResult.userId.toString(),
+      timestamp: quizResult.createdAt ? new Date(quizResult.createdAt) : new Date()
+    };
+    
+    console.log('Converted userId to string:', weaviateQuizResult.userId);
+    console.log('Set timestamp to:', weaviateQuizResult.timestamp);
+    
+    // Remove the createdAt field as it's not needed in Weaviate (using timestamp instead)
+    delete (weaviateQuizResult as any).createdAt;
+    
+    // Ensure responses array format is correct
+    try {
+      // Check if responses is array and has expected structure
+      if (!Array.isArray(weaviateQuizResult.responses)) {
+        console.error('Responses is not an array:', weaviateQuizResult.responses);
+        weaviateQuizResult.responses = [];
+      } else {
+        console.log(`Responses array has ${weaviateQuizResult.responses.length} items`);
+        
+        // Ensure each response has the required fields with correct types
+        weaviateQuizResult.responses = weaviateQuizResult.responses.map((response, index) => ({
+          questionId: Number(response.questionId),
+          question: String(response.question),
+          selectedOptionIndex: Number(response.selectedOptionIndex),
+          correctOptionIndex: Number(response.correctOptionIndex),
+          isCorrect: Boolean(response.isCorrect)
+        }));
+      }
+    } catch (responseError) {
+      console.error('Error processing responses array:', responseError);
+      weaviateQuizResult.responses = [];
     }
+    
+    // Ensure arrays are actually arrays
+    if (!Array.isArray(weaviateQuizResult.strengthAreas)) {
+      console.log('strengthAreas is not an array, setting to empty array');
+      weaviateQuizResult.strengthAreas = [];
+    }
+    
+    if (!Array.isArray(weaviateQuizResult.weaknessAreas)) {
+      console.log('weaknessAreas is not an array, setting to empty array');
+      weaviateQuizResult.weaknessAreas = [];
+    }
+    
+    console.log('Data prepared for Weaviate. Calling quizResultService.create()');
+    
+    // Save to Weaviate
+    const quizResultId = await quizResultService.create(weaviateQuizResult);
+    
+    console.log(`Quiz result saved successfully with ID: ${quizResultId}`);
+    
+    // Return the saved result
+    return {
+      id: quizResultId,
+      ...weaviateQuizResult,
+      // Convert fields back to the expected format for the response
+      user_id: quizResult.userId,
+      quiz_id: quizResult.quizId,
+      total_questions: quizResult.totalQuestions,
+      strength_areas: quizResult.strengthAreas,
+      weakness_areas: quizResult.weaknessAreas,
+      learning_option: quizResult.learningOption,
+      created_at: weaviateQuizResult.timestamp instanceof Date 
+        ? weaviateQuizResult.timestamp.toISOString() 
+        : weaviateQuizResult.timestamp
+    };
+  } catch (error) {
+    console.error('Error saving quiz result to Weaviate:', error);
+    // Check if it's an error we can extract more info from
+    if (error instanceof Error) {
+      console.error('Error details:', error.message);
+      console.error('Error stack:', error.stack);
+    }
+    
+    throw new Error(`Failed to save quiz result: ${error instanceof Error ? error.message : 'Unknown error'}`);
   }
-  
-  return resultData;
 } 
