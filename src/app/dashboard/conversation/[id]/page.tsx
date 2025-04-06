@@ -49,11 +49,12 @@ type FileAttachment = {
 
 // Interface for UI messages (including local ones not yet saved)
 interface UIMessage {
-  id?: number;
+  id?: number | string;
   role: string;
   content: string;
   timestamp: Date;
   status?: "sending" | "sent" | "error";
+  _doNotSave?: boolean; // Add flag to indicate messages that should not be saved
 }
 
 export default function ConversationPage({
@@ -83,6 +84,11 @@ export default function ConversationPage({
   const [quizStrengths, setQuizStrengths] = useState<string[]>([]);
   const [quizWeaknesses, setQuizWeaknesses] = useState<string[]>([]);
   const [showQuizResults, setShowQuizResults] = useState(false);
+  
+  // Add ref to track if we've initialized messages
+  const hasInitializedRef = useRef(false);
+  // Add ref to track if we've loaded messages from storage
+  const hasLoadedFromStorageRef = useRef(false);
 
   // Maximum file size in bytes (10MB)
   const MAX_FILE_SIZE = 10 * 1024 * 1024;
@@ -94,6 +100,9 @@ export default function ConversationPage({
   }, [router]);
 
   const fetchConversation = React.useCallback(async (id: number) => {
+    // Skip if we've already initialized messages from storage
+    if (hasLoadedFromStorageRef.current) return;
+    
     setIsLoading(true);
     setError(null);
 
@@ -103,9 +112,14 @@ export default function ConversationPage({
       if (response.success && response.conversation) {
         setConversation(response.conversation);
 
-        // Always start with a welcome message
-        setMessages([
-          {
+        // Only set initial welcome message if we haven't already loaded from storage
+        // and no welcome message exists in the database (indicated by empty messages)
+        if (!hasInitializedRef.current) {
+          console.log('Setting initial welcome message (UI only, not saved)');
+          hasInitializedRef.current = true;
+          
+          // Create a UI-only welcome message that will never be saved to the database
+          const welcomeMessage: UIMessage = {
             role: "assistant",
             content: `Welcome to your ${getLearningOptionDisplay(
               response.conversation.learning_option
@@ -114,8 +128,12 @@ export default function ConversationPage({
             )}"`,
             timestamp: new Date(),
             status: "sent",
-          },
-        ]);
+            // Add a flag to indicate this message should never be saved
+            _doNotSave: true
+          };
+          
+          setMessages([welcomeMessage]);
+        }
       } else {
         setError(response.error || "Failed to fetch conversation");
         setConversation(null);
@@ -131,11 +149,23 @@ export default function ConversationPage({
     }
   }, []);
 
-  // Fetch conversation data when the component mounts
+  // Fetch conversation data when the component mounts - with protection against multiple calls
   useEffect(() => {
-    if (unwrappedParams.id) {
-      fetchConversation(parseInt(unwrappedParams.id));
+    console.log(`Page mounting for conversation ${unwrappedParams.id}, hasLoadedFromStorage: ${hasLoadedFromStorageRef.current}, hasInitialized: ${hasInitializedRef.current}`);
+    
+    if (!unwrappedParams.id || hasLoadedFromStorageRef.current) {
+      console.log('Skipping fetch conversation, already loaded from storage');
+      return;
     }
+    
+    fetchConversation(parseInt(unwrappedParams.id));
+    
+    // Cleanup function to reset refs when component unmounts
+    return () => {
+      console.log(`Page unmounting for conversation ${unwrappedParams.id}`);
+      hasInitializedRef.current = false;
+      hasLoadedFromStorageRef.current = false;
+    };
   }, [unwrappedParams.id, fetchConversation]);
 
   // Set up the timer when duration is available
@@ -174,6 +204,79 @@ export default function ConversationPage({
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
+  // Add an effect to listen for saved messages from the wrapper component
+  useEffect(() => {
+    console.log('Setting up load-messages event listener');
+    
+    const handleLoadMessages = (event: CustomEvent<UIMessage[]>) => {
+      if (!event.detail || !Array.isArray(event.detail) || event.detail.length === 0) {
+        console.log('Received empty messages array from load-messages event, ignoring');
+        return;
+      }
+      
+      console.log(`Received load-messages event with ${event.detail.length} messages, current hasLoadedFromStorage: ${hasLoadedFromStorageRef.current}`);
+      
+      // Only process the event if we haven't already loaded messages
+      if (!hasLoadedFromStorageRef.current) {
+        // Mark that we've loaded messages from storage to prevent duplicate initialization
+        hasLoadedFromStorageRef.current = true;
+        hasInitializedRef.current = true;
+        
+        console.log(`Loading ${event.detail.length} messages from storage event, flags updated`);
+        setMessages(event.detail);
+      } else {
+        console.log('Ignoring load-messages event as we already loaded messages');
+      }
+    };
+
+    // Add event listener
+    window.addEventListener('load-messages', handleLoadMessages as EventListener);
+
+    // Cleanup function
+    return () => {
+      console.log('Removing load-messages event listener');
+      window.removeEventListener('load-messages', handleLoadMessages as EventListener);
+    };
+  }, []);
+
+  // Add an event to trigger saving messages after receiving a response
+  const saveMessages = (messagesToSave: UIMessage[]) => {
+    console.log(`Filtering messages before saving (total: ${messagesToSave.length})`);
+    
+    if (!unwrappedParams.id) {
+      console.error('No conversation ID available for saving messages');
+      return;
+    }
+    
+    // Filter out any messages that have the _doNotSave flag
+    const messagesToActuallySave = messagesToSave.filter(msg => !msg._doNotSave);
+    
+    console.log(`After filtering, saving ${messagesToActuallySave.length} messages (excluded ${messagesToSave.length - messagesToActuallySave.length} UI-only messages)`);
+    
+    // Make sure we're not saving empty messages
+    if (!messagesToActuallySave || messagesToActuallySave.length === 0) {
+      console.warn('No messages to save after filtering');
+      return;
+    }
+    
+    // Dispatch event to save messages to Weaviate
+    const saveEvent = new CustomEvent('save-messages', {
+      detail: messagesToActuallySave
+    });
+    window.dispatchEvent(saveEvent);
+    
+    // Also save to localStorage as backup
+    try {
+      localStorage.setItem(
+        `conversation_${unwrappedParams.id}_messages`,
+        JSON.stringify(messagesToActuallySave)
+      );
+      console.log('Messages also saved to localStorage as backup');
+    } catch (e) {
+      console.error('Error saving messages to localStorage:', e);
+    }
+  };
+
   const handleSendMessage = async () => {
     if (!inputMessage.trim() && attachments.length === 0) return;
     if (!conversation) return;
@@ -193,15 +296,14 @@ export default function ConversationPage({
             attachments.length
           } file(s): ${attachments.map((a) => a.name).join(", ")}]`
         : userMessage.content;
+    
+    const userDisplayMessage = {
+      ...userMessage,
+      content: displayContent,
+    };
 
     // Add message to UI
-    setMessages((prev) => [
-      ...prev,
-      {
-        ...userMessage,
-        content: displayContent,
-      },
-    ]);
+    setMessages((prev) => [...prev, userDisplayMessage]);
 
     setInputMessage("");
     setIsTyping(true);
@@ -269,7 +371,7 @@ export default function ConversationPage({
       // Update UI message status to sent
       setMessages((prev) =>
         prev.map((msg) =>
-          msg === userMessage ? { ...msg, status: "sent" } : msg
+          msg === userDisplayMessage ? { ...msg, status: "sent" } : msg
         )
       );
 
@@ -278,9 +380,30 @@ export default function ConversationPage({
         role: "assistant",
         content: data.message,
         timestamp: new Date(),
-        status: "sent",
+        status: "sent" as "sending" | "sent" | "error"
       };
-      setMessages((prev) => [...prev, assistantMessage]);
+      
+      // Update messages state with both user and assistant messages
+      setMessages((prev) => {
+        // First ensure the user message is marked as sent
+        const updatedPrev = prev.map(msg => 
+          msg === userDisplayMessage 
+            ? { ...msg, status: "sent" as "sending" | "sent" | "error" } 
+            : msg
+        );
+        
+        // Then add the assistant message
+        const newMessages = [...updatedPrev, assistantMessage];
+        
+        // Save all messages - Using a short timeout to ensure state updates have completed
+        // This helps prevent duplicate saves when state updates happen rapidly
+        setTimeout(() => {
+          console.log(`Saving ${newMessages.length} messages after receiving assistant response`);
+          saveMessages(newMessages);
+        }, 100);
+        
+        return newMessages;
+      });
 
       // Clear attachments after sending
       setAttachments([]);
@@ -292,7 +415,7 @@ export default function ConversationPage({
       // Update message status to show error
       setMessages((prev) =>
         prev.map((msg) =>
-          msg === userMessage ? { ...msg, status: "error" } : msg
+          msg === userDisplayMessage ? { ...msg, status: "error" } : msg
         )
       );
     } finally {
@@ -394,12 +517,36 @@ export default function ConversationPage({
   const formatTime = (seconds: number) => {
     const hours = Math.floor(seconds / 3600);
     const minutes = Math.floor((seconds % 3600) / 60);
-    const secs = seconds % 60;
+    const secs = Math.floor(seconds % 60);
 
-    return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(
-      2,
-      "0"
-    )}:${String(secs).padStart(2, "0")}`;
+    return [
+      hours.toString().padStart(2, "0"),
+      minutes.toString().padStart(2, "0"),
+      secs.toString().padStart(2, "0"),
+    ].join(":");
+  };
+
+  // Helper function to safely format a timestamp
+  const safeFormatTime = (timestamp: Date | string | unknown): string => {
+    if (!timestamp) return "";
+    
+    try {
+      // If it's already a Date object
+      if (timestamp instanceof Date) {
+        return isNaN(timestamp.getTime()) ? "" : timestamp.toLocaleTimeString();
+      }
+      
+      // If it's a string, try to convert it
+      if (typeof timestamp === 'string') {
+        const date = new Date(timestamp);
+        return isNaN(date.getTime()) ? "" : date.toLocaleTimeString();
+      }
+      
+      return "";
+    } catch (error) {
+      console.warn("Error formatting timestamp:", error);
+      return "";
+    }
   };
 
   // // Format duration string to a human readable format
@@ -570,6 +717,31 @@ export default function ConversationPage({
     }
   };
 
+  // Make sure we save messages when component unmounts
+  useEffect(() => {
+    return () => {
+      // Don't save messages on unmount - this is causing excessive message saving
+      // Only uncomment this if we determine it's necessary for some reason
+      
+      /*
+      if (messages.length > 0 && unwrappedParams.id) {
+        console.log('Saving messages on component unmount');
+        saveMessages(messages);
+        
+        // Reset all the flags when unmounting
+        console.log('Cleaning up refs and flags on unmount');
+        hasInitializedRef.current = false;
+        hasLoadedFromStorageRef.current = false;
+      }
+      */
+      
+      // Just clean up the flags
+      console.log('Cleaning up refs and flags on unmount');
+      hasInitializedRef.current = false;
+      hasLoadedFromStorageRef.current = false;
+    };
+  }, [messages, unwrappedParams.id]); // Removed saveMessages dependency as it's no longer used
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-full">
@@ -626,6 +798,62 @@ export default function ConversationPage({
         </div>
 
         <div className="flex items-center gap-3">
+          {/* Add a debugging button */}
+          <Button
+            variant="ghost"
+            size="sm"
+            className="text-white hover:bg-red-600/20"
+            onClick={() => {
+              // Clear all tracking state
+              if (typeof window !== 'undefined') {
+                // @ts-expect-error - Using dynamic window property
+                window.__conversationEventsDispatched = new Set();
+                // Clear local refs
+                hasInitializedRef.current = false;
+                hasLoadedFromStorageRef.current = false;
+                // Clear local storage items
+                localStorage.removeItem(`conversation_${unwrappedParams.id}_messages`);
+                console.log('Cleared all conversation tracking state');
+                toast.success('Cleared message state - refreshing page');
+                // Refresh the page
+                window.location.reload();
+              }
+            }}
+          >
+            <RefreshCcwIcon className="h-4 w-4 mr-1" />
+            Reset
+          </Button>
+          
+          <Button
+            variant="ghost"
+            size="sm"
+            className="text-white hover:bg-orange-600/20"
+            onClick={async () => {
+              try {
+                // Call API to delete welcome messages
+                const response = await fetch(`/api/message-sync/cleanup-welcome?conversationId=${unwrappedParams.id}`, {
+                  method: 'DELETE'
+                });
+                
+                if (!response.ok) {
+                  throw new Error(`Failed to clean up welcome messages: ${response.status}`);
+                }
+                
+                const data = await response.json();
+                toast.success(`Cleaned up ${data.deleted || 0} welcome messages`);
+                
+                // Refresh the page to show updated state
+                window.location.reload();
+              } catch (error) {
+                console.error('Error cleaning up welcome messages:', error);
+                toast.error('Failed to clean up welcome messages');
+              }
+            }}
+          >
+            <TrashIcon className="h-4 w-4 mr-1" />
+            Clean DB
+          </Button>
+          
           <div className="text-xl font-medium text-white bg-teal-700/50 px-3 py-1 rounded-md">
             {formatTime(timeLeft)}
           </div>
@@ -753,7 +981,7 @@ export default function ConversationPage({
                   <p className="text-white">{message.content}</p>
                 )}
                 <p className="text-white/50 text-xs mt-1">
-                  {message.timestamp.toLocaleTimeString()}
+                  {safeFormatTime(message.timestamp)}
                   {message.status === "sending" && " • Sending..."}
                   {message.status === "error" && " • Error sending"}
                 </p>
@@ -1063,6 +1291,51 @@ function QuizIcon(props: React.SVGProps<SVGSVGElement>) {
       <line x1="18" y1="5" x2="18" y2="8" />
       <line x1="18" y1="10" x2="18" y2="13" />
       <rect x="2" y="2" width="20" height="20" rx="5" />
+    </svg>
+  );
+}
+
+function RefreshCcwIcon(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg
+      {...props}
+      xmlns="http://www.w3.org/2000/svg"
+      width="24"
+      height="24"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+      <path d="M3 3v5h5" />
+      <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16" />
+      <path d="M16 21h5v-5" />
+    </svg>
+  );
+}
+
+function TrashIcon(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg
+      {...props}
+      xmlns="http://www.w3.org/2000/svg"
+      width="24"
+      height="24"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M3 6h18" />
+      <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
+      <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
+      <line x1="10" y1="11" x2="10" y2="17" />
+      <line x1="14" y1="11" x2="14" y2="17" />
     </svg>
   );
 }
