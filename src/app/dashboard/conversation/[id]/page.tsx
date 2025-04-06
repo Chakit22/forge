@@ -805,9 +805,9 @@ export default function ConversationPage({
   }
 
   return (
-    <div className="min-h-screen bg-black flex flex-col">
+    <div className="fixed inset-0 bg-black flex flex-col">
       {/* Header with timer */}
-      <header className="flex items-center justify-between p-4 bg-black border-b border-white/10">
+      <header className="flex-none flex items-center justify-between p-4 bg-black border-b border-white/10">
         <div className="flex items-center">
           <Button
             variant="ghost"
@@ -852,15 +852,15 @@ export default function ConversationPage({
       </header>
 
       {/* Session summary */}
-      <div className="bg-slate-900 p-3 text-center">
+      <div className="flex-none bg-slate-900 p-3 text-center">
         <p className="text-white">
           <span className="font-medium">Summary:</span> {conversation.summary}
         </p>
       </div>
 
       {/* Main chat area */}
-      <main className="flex-1 flex flex-col p-4 md:p-8 overflow-hidden">
-        <div className="flex-1 mb-4 overflow-auto bg-slate-800 rounded-lg p-4">
+      <main className="flex-1 flex flex-col p-4 md:p-8 min-h-0">
+        <div className="flex-1 mb-4 overflow-y-auto bg-slate-800 rounded-lg p-4 min-h-0">
           <div className="flex flex-col gap-4">
             {messages.map((message, index) => (
               <div
