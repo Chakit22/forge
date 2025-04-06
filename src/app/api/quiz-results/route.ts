@@ -129,7 +129,7 @@ async function generateFeedback(
 ): Promise<string> {
   const openai = getOpenAIClient();
   
-  const correctAnswers = responses.filter(r => r.isCorrect).length;
+  // Calculate incorrect answers instead of unused correctAnswers
   const incorrectAnswers = responses.filter(r => !r.isCorrect);
   
   // Create prompt for OpenAI

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef } from "react";
 import Mindmap from "./Mindmap";
 import { ChevronDown, ChevronUp, FileJson, ListTree } from "lucide-react";
 

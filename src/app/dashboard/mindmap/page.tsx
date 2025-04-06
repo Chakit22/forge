@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import SpeechToMindmap from "./SpeechToMindmap";
 
 export default function MindmapPage() {

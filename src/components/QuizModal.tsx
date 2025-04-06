@@ -8,7 +8,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Quiz, QuizQuestion } from "@/app/api/quiz-generator/route";
+import { Quiz } from "@/app/api/quiz-generator/route";
 import { toast } from "sonner";
 import { useUser } from "@/context/user-context";
 import { QuizResultRequest } from "@/app/api/quiz-results/route";
@@ -20,7 +20,11 @@ interface QuizModalProps {
   quiz: Quiz | null;
   isLoading: boolean;
   learningOption: string;
-  onQuizComplete?: (feedback: string, strengths: string[], weaknesses: string[]) => void;
+  onQuizComplete?: (
+    feedback: string,
+    strengths: string[],
+    weaknesses: string[]
+  ) => void;
 }
 
 export default function QuizModal({
@@ -83,7 +87,7 @@ export default function QuizModal({
       setScore(newScore);
       setShowResults(true);
       setQuizComplete(true);
-      
+
       // Save quiz results if user is logged in
       if (user && quiz) {
         saveQuizResults(newScore, quiz.questions.length);
@@ -94,11 +98,12 @@ export default function QuizModal({
   };
 
   const saveQuizResults = async (finalScore: number, totalQs: number) => {
-    if (!user || !quiz || !quiz.questions || quiz.questions.length === 0) return;
-    
+    if (!user || !quiz || !quiz.questions || quiz.questions.length === 0)
+      return;
+
     try {
       setIsSavingResults(true);
-      
+
       const quizResultData: QuizResultRequest = {
         quizTitle: quiz.title,
         userId: user.id,
@@ -106,30 +111,30 @@ export default function QuizModal({
         totalQuestions: totalQs,
         questions: quiz.questions,
         selectedOptions,
-        learningOption
+        learningOption,
       };
-      
-      const response = await fetch('/api/quiz-results', {
-        method: 'POST',
+
+      const response = await fetch("/api/quiz-results", {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify(quizResultData),
       });
-      
+
       const data = await response.json();
-      
+
       if (data.success && data.result) {
         setFeedback(data.result.feedback || "");
         setStrengths(data.result.strength_areas || []);
         setWeaknesses(data.result.weakness_areas || []);
         toast.success("Quiz results saved!");
-        
+
         // Send results back to parent component
         if (onQuizComplete) {
           onQuizComplete(
-            data.result.feedback || "", 
-            data.result.strength_areas || [], 
+            data.result.feedback || "",
+            data.result.strength_areas || [],
             data.result.weakness_areas || []
           );
         }
@@ -162,7 +167,8 @@ export default function QuizModal({
   };
 
   const currentQuestion = quiz?.questions?.[currentQuestionIndex];
-  const hasAnsweredCurrentQuestion = selectedOptions[currentQuestionIndex] !== undefined;
+  const hasAnsweredCurrentQuestion =
+    selectedOptions[currentQuestionIndex] !== undefined;
   const totalQuestions = quiz?.questions?.length || 0;
 
   return (
@@ -178,7 +184,9 @@ export default function QuizModal({
             <div className="flex flex-col items-center justify-center py-8">
               <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-white mb-4"></div>
               <p className="text-white text-lg">
-                {isLoading ? "Generating quiz questions..." : "Analyzing your performance..."}
+                {isLoading
+                  ? "Generating quiz questions..."
+                  : "Analyzing your performance..."}
               </p>
             </div>
           </>
@@ -186,13 +194,19 @@ export default function QuizModal({
           // Results view
           <div className="py-4 flex-1 overflow-hidden flex flex-col">
             <DialogHeader>
-              <DialogTitle className="text-2xl font-bold text-white">Quiz Results</DialogTitle>
+              <DialogTitle className="text-2xl font-bold text-white">
+                Quiz Results
+              </DialogTitle>
               <DialogDescription className="text-white/70 text-lg mt-2">
                 You scored {score} out of {totalQuestions}!
               </DialogDescription>
             </DialogHeader>
-            
-            <Tabs value={activeTab} onValueChange={setActiveTab} className="mt-6 flex-1 flex flex-col overflow-hidden">
+
+            <Tabs
+              value={activeTab}
+              onValueChange={setActiveTab}
+              className="mt-6 flex-1 flex flex-col overflow-hidden"
+            >
               <TabsList className="bg-teal-600/30 w-full">
                 <TabsTrigger
                   value="results"
@@ -213,8 +227,11 @@ export default function QuizModal({
                   Analysis
                 </TabsTrigger>
               </TabsList>
-              
-              <TabsContent value="results" className="mt-4 space-y-4 overflow-y-auto pr-2 flex-1">
+
+              <TabsContent
+                value="results"
+                className="mt-4 space-y-4 overflow-y-auto pr-2 flex-1"
+              >
                 {quiz?.questions?.map((question, index) => (
                   <div key={index} className="bg-teal-600/30 rounded-lg p-4">
                     <p className="font-medium mb-2">
@@ -227,8 +244,9 @@ export default function QuizModal({
                           className={`p-2 rounded-md flex items-center ${
                             optionIndex === question.correctAnswerIndex
                               ? "bg-green-500/30 border border-green-400"
-                              : selectedOptions[index] === optionIndex && 
-                                selectedOptions[index] !== question.correctAnswerIndex
+                              : selectedOptions[index] === optionIndex &&
+                                selectedOptions[index] !==
+                                  question.correctAnswerIndex
                               ? "bg-red-500/30 border border-red-400"
                               : "bg-teal-600/20"
                           }`}
@@ -262,23 +280,31 @@ export default function QuizModal({
                   </div>
                 ))}
               </TabsContent>
-              
-              <TabsContent value="feedback" className="mt-4 overflow-y-auto pr-2 flex-1">
+
+              <TabsContent
+                value="feedback"
+                className="mt-4 overflow-y-auto pr-2 flex-1"
+              >
                 {feedback ? (
                   <div className="bg-teal-600/30 rounded-lg p-4">
-                    <h3 className="text-lg font-medium mb-3">Personalized Feedback</h3>
-                    <div className="whitespace-pre-line">
-                      {feedback}
-                    </div>
+                    <h3 className="text-lg font-medium mb-3">
+                      Personalized Feedback
+                    </h3>
+                    <div className="whitespace-pre-line">{feedback}</div>
                   </div>
                 ) : (
                   <div className="bg-teal-600/30 rounded-lg p-4 text-center">
-                    <p>Sign in to get personalized feedback on your performance</p>
+                    <p>
+                      Sign in to get personalized feedback on your performance
+                    </p>
                   </div>
                 )}
               </TabsContent>
-              
-              <TabsContent value="analysis" className="mt-4 overflow-y-auto pr-2 flex-1">
+
+              <TabsContent
+                value="analysis"
+                className="mt-4 overflow-y-auto pr-2 flex-1"
+              >
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="bg-teal-600/30 rounded-lg p-4">
                     <h3 className="text-lg font-medium mb-3 flex items-center">
@@ -287,14 +313,16 @@ export default function QuizModal({
                     {strengths.length > 0 ? (
                       <ul className="list-disc pl-5 space-y-2">
                         {strengths.map((strength, i) => (
-                          <li key={i} className="text-green-200">{strength}</li>
+                          <li key={i} className="text-green-200">
+                            {strength}
+                          </li>
                         ))}
                       </ul>
                     ) : (
                       <p className="text-sm">No strengths identified yet.</p>
                     )}
                   </div>
-                  
+
                   <div className="bg-teal-600/30 rounded-lg p-4">
                     <h3 className="text-lg font-medium mb-3 flex items-center">
                       <span className="mr-2">🎯</span> Areas to Improve
@@ -302,11 +330,15 @@ export default function QuizModal({
                     {weaknesses.length > 0 ? (
                       <ul className="list-disc pl-5 space-y-2">
                         {weaknesses.map((weakness, i) => (
-                          <li key={i} className="text-yellow-200">{weakness}</li>
+                          <li key={i} className="text-yellow-200">
+                            {weakness}
+                          </li>
                         ))}
                       </ul>
                     ) : (
-                      <p className="text-sm">No areas for improvement identified yet.</p>
+                      <p className="text-sm">
+                        No areas for improvement identified yet.
+                      </p>
                     )}
                   </div>
                 </div>
@@ -347,14 +379,19 @@ export default function QuizModal({
                   Question {currentQuestionIndex + 1} of {totalQuestions}
                 </span>
                 <span className="text-sm font-medium bg-teal-600/40 px-2 py-1 rounded">
-                  {Math.round(((currentQuestionIndex + 1) / totalQuestions) * 100)}% Complete
+                  {Math.round(
+                    ((currentQuestionIndex + 1) / totalQuestions) * 100
+                  )}
+                  % Complete
                 </span>
               </div>
 
               {currentQuestion && (
                 <div className="space-y-4">
-                  <h3 className="text-lg font-medium">{currentQuestion.question}</h3>
-                  
+                  <h3 className="text-lg font-medium">
+                    {currentQuestion.question}
+                  </h3>
+
                   <div className="grid grid-cols-1 gap-3">
                     {currentQuestion.options.map((option, optionIndex) => (
                       <div
@@ -364,16 +401,20 @@ export default function QuizModal({
                             ? "bg-teal-500/30 border border-teal-400"
                             : "bg-teal-600/20 hover:bg-teal-600/40"
                         }`}
-                        onClick={() => handleOptionSelect(currentQuestionIndex, optionIndex)}
+                        onClick={() =>
+                          handleOptionSelect(currentQuestionIndex, optionIndex)
+                        }
                       >
                         <div
                           className={`mr-3 flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center border ${
-                            selectedOptions[currentQuestionIndex] === optionIndex
+                            selectedOptions[currentQuestionIndex] ===
+                            optionIndex
                               ? "border-white bg-white/20"
                               : "border-white/50"
                           }`}
                         >
-                          {selectedOptions[currentQuestionIndex] === optionIndex && (
+                          {selectedOptions[currentQuestionIndex] ===
+                            optionIndex && (
                             <div className="w-3 h-3 bg-white rounded-full"></div>
                           )}
                         </div>
@@ -386,9 +427,7 @@ export default function QuizModal({
                   {hasAnsweredCurrentQuestion && quizComplete && (
                     <div className="mt-4 bg-teal-600/30 p-3 rounded-md">
                       <p className="font-medium mb-1">Explanation:</p>
-                      <p className="text-sm">
-                        {currentQuestion.explanation}
-                      </p>
+                      <p className="text-sm">{currentQuestion.explanation}</p>
                     </div>
                   )}
                 </div>
@@ -417,7 +456,9 @@ export default function QuizModal({
                   disabled={!hasAnsweredCurrentQuestion}
                   className="bg-teal-600 hover:bg-teal-500 text-white disabled:opacity-50"
                 >
-                  {currentQuestionIndex === totalQuestions - 1 ? "Finish" : "Next"}
+                  {currentQuestionIndex === totalQuestions - 1
+                    ? "Finish"
+                    : "Next"}
                 </Button>
               </div>
             </DialogFooter>
@@ -426,4 +467,4 @@ export default function QuizModal({
       </DialogContent>
     </Dialog>
   );
-} 
+}

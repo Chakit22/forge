@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef } from "react";
+import React, { useEffect, useMemo } from "react";
 import ReactFlow, {
   ReactFlowProvider,
   MiniMap,
@@ -15,6 +15,13 @@ import ReactFlow, {
 import dagre from "dagre";
 import "reactflow/dist/style.css";
 
+// Define color type for node styling
+interface NodeColors {
+  backgroundColor: string;
+  borderColor: string;
+  textColor: string;
+}
+
 // Define the hierarchical node type
 type MindmapNode = {
   title: string;
@@ -23,7 +30,7 @@ type MindmapNode = {
 };
 
 // Define the node and edge types for type safety
-type FlowNode = Node<{ label: string; level: number; colors: any }>;
+type FlowNode = Node<{ label: string; level: number; colors: NodeColors }>;
 type FlowEdge = Edge;
 
 // Function to convert hierarchical data to ReactFlow nodes and edges
@@ -230,7 +237,7 @@ const getLayoutedElements = (
 const CustomNode = ({
   data,
 }: {
-  data: { label: string; level: number; colors: any };
+  data: { label: string; level: number; colors: NodeColors };
 }) => {
   return (
     <div
