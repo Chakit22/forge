@@ -21,37 +21,35 @@ export default function DashboardLayout({
       router.replace("/login");
     }
   }, [user, isLoading, router]);
-  
+
   // Add a cleanup function to reset conversation event trackers
   useEffect(() => {
     // Any time dashboard layout is mounted, add route change handler
     const handleRouteChange = () => {
-      console.log('Route changed, clearing conversation event trackers');
-      
+      console.log("Route changed, clearing conversation event trackers");
+
       // Clear conversation event dispatch tracking
-      if (typeof window !== 'undefined') {
-        // @ts-expect-error - Using dynamic window property
+      if (typeof window !== "undefined") {
         if (window.__conversationEventsDispatched) {
-          // @ts-expect-error - Using dynamic window property
           window.__conversationEventsDispatched = new Set();
-          console.log('Cleared conversation event dispatch tracking');
+          console.log("Cleared conversation event dispatch tracking");
         }
       }
     };
-    
+
     // Listen for route changes in the dashboard
-    window.addEventListener('popstate', handleRouteChange);
-    
+    window.addEventListener("popstate", handleRouteChange);
+
     return () => {
-      window.removeEventListener('popstate', handleRouteChange);
-      
+      window.removeEventListener("popstate", handleRouteChange);
+
       // Also clear on unmount
-      if (typeof window !== 'undefined') {
-        // @ts-expect-error - Using dynamic window property
+      if (typeof window !== "undefined") {
         if (window.__conversationEventsDispatched) {
-          // @ts-expect-error - Using dynamic window property
           window.__conversationEventsDispatched = new Set();
-          console.log('Cleared conversation event dispatch tracking on dashboard unmount');
+          console.log(
+            "Cleared conversation event dispatch tracking on dashboard unmount"
+          );
         }
       }
     };

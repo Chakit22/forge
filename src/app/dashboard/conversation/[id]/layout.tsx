@@ -5,22 +5,22 @@ import WeaviateConversationWrapper from "../wrapper";
 
 export default function ConversationLayout({
   children,
-  params
+  params,
 }: {
   children: React.ReactNode;
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }) {
   // Unwrap params using React.use()
   const unwrappedParams = React.use(params);
-  
+
   console.log(`Layout rendering for conversation ${unwrappedParams.id}`);
-  
+
   return (
-    <WeaviateConversationWrapper 
-      key={`conversation-wrapper-${unwrappedParams.id}`} 
+    <WeaviateConversationWrapper
+      key={`conversation-wrapper-${unwrappedParams.id}`}
       conversationId={unwrappedParams.id}
     >
       {children}
     </WeaviateConversationWrapper>
   );
-} 
+}

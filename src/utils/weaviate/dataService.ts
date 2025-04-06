@@ -27,6 +27,7 @@ export type Document = BaseObject & {
   title: string;
   content: string;
   fileType: string;
+  metadata?: Record<string, any>;
 };
 
 // Image type
@@ -64,10 +65,12 @@ async function createObject<T extends BaseObject>(
     
     console.log(`${className} data:`, {
       ...formattedData,
-      // Only show preview of content if it exists and is a string
-      content: typeof formattedData.content === 'string' 
-        ? formattedData.content.slice(0, 50) + (formattedData.content.length > 50 ? '...' : '') 
-        : formattedData.content
+      // Don't show full content in logs
+      ...(('content' in formattedData) ? { 
+        content: typeof formattedData.content === 'string' 
+          ? formattedData.content.slice(0, 50) + (formattedData.content.length > 50 ? '...' : '') 
+          : '[non-string content]' 
+      } : {})
     });
     
     await client.data

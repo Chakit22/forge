@@ -4,10 +4,10 @@ import { getCurrentUser } from '@/app/api/actions';
 
 export async function GET(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const resultId = params.id;
+    const resultId = (await params).id;
     
     if (!resultId) {
       return NextResponse.json(

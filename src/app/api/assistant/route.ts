@@ -1,6 +1,14 @@
 import { NextResponse } from 'next/server';
 import { OpenAI } from 'openai';
 import { Message } from '../memoagent';
+import * as fs from 'fs';
+
+// Define interfaces for file attachments
+interface FileAttachment {
+  name: string;
+  content: string; // base64 encoded content
+  type?: string;
+}
 
 // Initialize OpenAI client
 const getOpenAIClient = () => {
@@ -70,7 +78,7 @@ export async function POST(request: Request) {
 async function runAssistantConversation(
   messages: Message[],
   assistantId: string,
-  attachments?: any[]
+  attachments?: FileAttachment[]
 ): Promise<string> {
   const openai = getOpenAIClient();
   console.log(`Using assistant ID: ${assistantId}`);
@@ -249,7 +257,7 @@ async function runAssistantConversation(
 }
 
 // Process file attachments and return file IDs
-async function processAttachments(openai: OpenAI, attachments: any[]): Promise<string[]> {
+async function processAttachments(openai: OpenAI, attachments: FileAttachment[]): Promise<string[]> {
   const fileIds: string[] = [];
   
   for (const attachment of attachments) {
@@ -257,14 +265,22 @@ async function processAttachments(openai: OpenAI, attachments: any[]): Promise<s
       // Convert base64 to buffer
       const buffer = Buffer.from(attachment.content, 'base64');
       
+      // Create a Blob from the buffer that meets the Uploadable interface requirements
+      const blob = new Blob([buffer], { type: attachment.type || 'application/octet-stream' });
+      // Add required FileLike properties to make it compatible with OpenAI's Uploadable type
+      const file = Object.assign(blob, {
+        name: attachment.name || 'file.txt',
+        lastModified: Date.now(),
+      });
+      
       // Create a file with OpenAI
-      const file = await openai.files.create({
-        file: buffer,
+      const response = await openai.files.create({
+        file,
         purpose: 'assistants',
       });
       
-      fileIds.push(file.id);
-      console.log(`File uploaded: ${file.id}`);
+      fileIds.push(response.id);
+      console.log(`File uploaded: ${response.id}`);
     } catch (error) {
       console.error(`Error uploading file: ${attachment.name}`, error);
     }

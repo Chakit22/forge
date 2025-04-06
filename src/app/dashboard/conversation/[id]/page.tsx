@@ -20,8 +20,6 @@ import remarkGfm from "remark-gfm";
 import { Message } from "@/app/api/memoagent";
 import QuizModal from "@/components/QuizModal";
 import { Quiz } from "@/app/api/quiz-generator/route";
-import QuizModal from "@/components/QuizModal";
-import { Quiz } from "@/app/api/quiz-generator/route";
 
 // Define types for ReactMarkdown components
 type CodeProps = React.DetailedHTMLProps<
@@ -844,7 +842,6 @@ export default function ConversationPage({
             onClick={() => {
               // Clear all tracking state
               if (typeof window !== "undefined") {
-                // @ts-expect-error - Using dynamic window property
                 window.__conversationEventsDispatched = new Set();
                 // Clear local refs
                 hasInitializedRef.current = false;
