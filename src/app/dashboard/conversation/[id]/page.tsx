@@ -558,12 +558,16 @@ export default function ConversationPage({
   };
 
   // Handler to receive quiz results from QuizModal
-  const handleQuizResults = (feedback: string, strengths: string[], weaknesses: string[]) => {
+  const handleQuizResults = (
+    feedback: string,
+    strengths: string[],
+    weaknesses: string[]
+  ) => {
     setQuizFeedback(feedback);
     setQuizStrengths(strengths);
     setQuizWeaknesses(weaknesses);
     setShowQuizResults(true);
-    
+
     // Optionally display a toast to notify the user
     if (feedback) {
       toast.success("Quiz results saved to conversation");
@@ -780,10 +784,12 @@ export default function ConversationPage({
             {showQuizResults && (
               <div className="bg-teal-600/30 p-4 rounded-lg self-start max-w-[95%] w-full overflow-hidden">
                 <div className="flex items-center justify-between mb-3">
-                  <h3 className="text-xl font-semibold text-white">Last Quiz Results</h3>
-                  <Button 
-                    variant="ghost" 
-                    size="sm" 
+                  <h3 className="text-xl font-semibold text-white">
+                    Last Quiz Results
+                  </h3>
+                  <Button
+                    variant="ghost"
+                    size="sm"
                     className="text-white/70 hover:text-white hover:bg-teal-600/20 h-8 px-2"
                     onClick={() => setShowQuizResults(false)}
                   >
@@ -791,16 +797,18 @@ export default function ConversationPage({
                     <CloseIcon className="h-4 w-4" />
                   </Button>
                 </div>
-                
+
                 {quizFeedback && (
                   <div className="mb-4 overflow-y-auto max-h-[300px] bg-teal-700/50 p-4 rounded-md">
-                    <h4 className="text-lg font-medium text-white mb-2 sticky top-0 bg-teal-700/70 py-1">Feedback</h4>
+                    <h4 className="text-lg font-medium text-white mb-2 sticky top-0 bg-teal-700/70 py-1">
+                      Feedback
+                    </h4>
                     <div className="whitespace-pre-line text-white/90">
                       {quizFeedback}
                     </div>
                   </div>
                 )}
-                
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-3">
                   {quizStrengths.length > 0 && (
                     <div className="bg-teal-700/40 p-3 rounded-md overflow-y-auto max-h-[200px]">
@@ -809,12 +817,14 @@ export default function ConversationPage({
                       </h4>
                       <ul className="list-disc pl-5 space-y-1 text-green-200">
                         {quizStrengths.map((strength, i) => (
-                          <li key={i} className="break-words">{strength}</li>
+                          <li key={i} className="break-words">
+                            {strength}
+                          </li>
                         ))}
                       </ul>
                     </div>
                   )}
-                  
+
                   {quizWeaknesses.length > 0 && (
                     <div className="bg-teal-700/40 p-3 rounded-md overflow-y-auto max-h-[200px]">
                       <h4 className="text-lg font-medium text-white mb-2 flex items-center sticky top-0 bg-teal-700/70 py-1">
@@ -822,7 +832,9 @@ export default function ConversationPage({
                       </h4>
                       <ul className="list-disc pl-5 space-y-1 text-yellow-200">
                         {quizWeaknesses.map((weakness, i) => (
-                          <li key={i} className="break-words">{weakness}</li>
+                          <li key={i} className="break-words">
+                            {weakness}
+                          </li>
                         ))}
                       </ul>
                     </div>
