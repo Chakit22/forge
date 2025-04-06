@@ -18,6 +18,8 @@ import type { Conversation } from "@/app/api/actions";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Message } from "@/app/api/memoagent";
+import QuizModal from "@/components/QuizModal";
+import { Quiz } from "@/app/api/quiz-generator/route";
 
 // Define types for ReactMarkdown components
 type CodeProps = React.DetailedHTMLProps<
@@ -73,6 +75,14 @@ export default function ConversationPage({
   const [attachments, setAttachments] = useState<FileAttachment[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [isQuizModalOpen, setIsQuizModalOpen] = useState(false);
+  const [quiz, setQuiz] = useState<Quiz | null>(null);
+  const [isGeneratingQuiz, setIsGeneratingQuiz] = useState(false);
+  // Add state for quiz feedback and analysis
+  const [quizFeedback, setQuizFeedback] = useState<string>("");
+  const [quizStrengths, setQuizStrengths] = useState<string[]>([]);
+  const [quizWeaknesses, setQuizWeaknesses] = useState<string[]>([]);
+  const [showQuizResults, setShowQuizResults] = useState(false);
 
   // Maximum file size in bytes (10MB)
   const MAX_FILE_SIZE = 10 * 1024 * 1024;
@@ -228,11 +238,11 @@ export default function ConversationPage({
         content: userMessage.content,
       });
 
-      // Validate the API endpoint path
+      // Determine which API endpoint to use
       const apiEndpoint = "/api/chat";
       console.log(`Sending request to API endpoint: ${apiEndpoint}`);
 
-      // Send to API route with attachments
+      // Send to selected API route with appropriate payload
       const response = await fetch(apiEndpoint, {
         method: "POST",
         headers: {
@@ -499,6 +509,67 @@ export default function ConversationPage({
     setAttachments((prev) => prev.filter((attachment) => attachment.id !== id));
   };
 
+  // Handle generating quiz questions
+  const handleGenerateQuiz = async () => {
+    if (messages.length < 2) {
+      toast.info("Chat more to generate a quiz");
+      return;
+    }
+
+    setIsGeneratingQuiz(true);
+    setIsQuizModalOpen(true);
+    setQuiz(null);
+
+    try {
+      if (!conversation) return;
+
+      // Convert UIMessages to API Messages format
+      const apiMessages: Message[] = messages.map((msg) => ({
+        role: msg.role as "user" | "assistant" | "system",
+        content: msg.content,
+      }));
+
+      const response = await fetch("/api/quiz-generator", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          messages: apiMessages,
+          learning_option: conversation.learning_option,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(
+          `Failed to generate quiz: ${response.status} ${response.statusText}`
+        );
+      }
+
+      const data = await response.json();
+      setQuiz(data.quiz);
+    } catch (error) {
+      console.error("Error generating quiz:", error);
+      toast.error("Failed to generate quiz");
+      setIsQuizModalOpen(false);
+    } finally {
+      setIsGeneratingQuiz(false);
+    }
+  };
+
+  // Handler to receive quiz results from QuizModal
+  const handleQuizResults = (feedback: string, strengths: string[], weaknesses: string[]) => {
+    setQuizFeedback(feedback);
+    setQuizStrengths(strengths);
+    setQuizWeaknesses(weaknesses);
+    setShowQuizResults(true);
+    
+    // Optionally display a toast to notify the user
+    if (feedback) {
+      toast.success("Quiz results saved to conversation");
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-full">
@@ -558,6 +629,16 @@ export default function ConversationPage({
           <div className="text-xl font-medium text-white bg-teal-700/50 px-3 py-1 rounded-md">
             {formatTime(timeLeft)}
           </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="text-white hover:bg-teal-600/20"
+            onClick={handleGenerateQuiz}
+            disabled={isGeneratingQuiz || messages.length < 2}
+          >
+            <QuizIcon className="h-5 w-5 mr-1" />
+            Quiz Me
+          </Button>
           <Button
             variant="ghost"
             size="sm"
@@ -695,6 +776,61 @@ export default function ConversationPage({
               </div>
             )}
 
+            {/* Display Quiz Results when available */}
+            {showQuizResults && (
+              <div className="bg-teal-600/30 p-4 rounded-lg self-start max-w-[95%] w-full overflow-hidden">
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-xl font-semibold text-white">Last Quiz Results</h3>
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    className="text-white/70 hover:text-white hover:bg-teal-600/20 h-8 px-2"
+                    onClick={() => setShowQuizResults(false)}
+                  >
+                    <span className="sr-only">Close</span>
+                    <CloseIcon className="h-4 w-4" />
+                  </Button>
+                </div>
+                
+                {quizFeedback && (
+                  <div className="mb-4 overflow-y-auto max-h-[300px] bg-teal-700/50 p-4 rounded-md">
+                    <h4 className="text-lg font-medium text-white mb-2 sticky top-0 bg-teal-700/70 py-1">Feedback</h4>
+                    <div className="whitespace-pre-line text-white/90">
+                      {quizFeedback}
+                    </div>
+                  </div>
+                )}
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-3">
+                  {quizStrengths.length > 0 && (
+                    <div className="bg-teal-700/40 p-3 rounded-md overflow-y-auto max-h-[200px]">
+                      <h4 className="text-lg font-medium text-white mb-2 flex items-center sticky top-0 bg-teal-700/70 py-1">
+                        <span className="mr-2">💪</span> Strengths
+                      </h4>
+                      <ul className="list-disc pl-5 space-y-1 text-green-200">
+                        {quizStrengths.map((strength, i) => (
+                          <li key={i} className="break-words">{strength}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  
+                  {quizWeaknesses.length > 0 && (
+                    <div className="bg-teal-700/40 p-3 rounded-md overflow-y-auto max-h-[200px]">
+                      <h4 className="text-lg font-medium text-white mb-2 flex items-center sticky top-0 bg-teal-700/70 py-1">
+                        <span className="mr-2">🎯</span> Areas to Improve
+                      </h4>
+                      <ul className="list-disc pl-5 space-y-1 text-yellow-200">
+                        {quizWeaknesses.map((weakness, i) => (
+                          <li key={i} className="break-words">{weakness}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
             <div ref={messagesEndRef} />
           </div>
         </div>
@@ -771,6 +907,16 @@ export default function ConversationPage({
           Supported files: Images, PDFs, Documents, Text files (Max 10MB)
         </div>
       </main>
+
+      {/* Quiz Modal */}
+      <QuizModal
+        open={isQuizModalOpen}
+        onOpenChange={setIsQuizModalOpen}
+        quiz={quiz}
+        isLoading={isGeneratingQuiz}
+        learningOption={conversation?.learning_option || "unknown"}
+        onQuizComplete={handleQuizResults}
+      />
 
       {/* End Session Dialog */}
       <Dialog
@@ -890,6 +1036,33 @@ function CloseIcon(props: React.SVGProps<SVGSVGElement>) {
     >
       <path d="M18 6 6 18" />
       <path d="m6 6 12 12" />
+    </svg>
+  );
+}
+
+function QuizIcon(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg
+      {...props}
+      xmlns="http://www.w3.org/2000/svg"
+      width="24"
+      height="24"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M9 11V6a2 2 0 0 1 2-2v0a2 2 0 0 1 2 2v0" />
+      <path d="M9 17v-3a2 2 0 0 1 2-2v0a2 2 0 0 1 2 2v0" />
+      <circle cx="6" cy="9" r="1" />
+      <line x1="6" y1="5" x2="6" y2="8" />
+      <line x1="6" y1="10" x2="6" y2="13" />
+      <circle cx="18" cy="9" r="1" />
+      <line x1="18" y1="5" x2="18" y2="8" />
+      <line x1="18" y1="10" x2="18" y2="13" />
+      <rect x="2" y="2" width="20" height="20" rx="5" />
     </svg>
   );
 }

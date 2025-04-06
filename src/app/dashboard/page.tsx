@@ -5,6 +5,7 @@ import { useState } from "react";
 import { ConversationList } from "@/components/conversation-list";
 import { Button } from "@/components/ui/button";
 import { CreateConversationModal } from "@/components/create-conversation-modal";
+import UserQuizResults from "@/components/UserQuizResults";
 
 export default function Dashboard() {
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -29,8 +30,16 @@ export default function Dashboard() {
         </Button>
       </div>
 
-      <div className="mt-12">
-        <ConversationList />
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-12">
+        <div className="lg:col-span-2">
+          <h3 className="text-white text-2xl font-medium mb-4">Your Learning Sessions</h3>
+          <ConversationList />
+        </div>
+        
+        <div>
+          <h3 className="text-white text-2xl font-medium mb-4">Quiz Performance</h3>
+          <UserQuizResults />
+        </div>
       </div>
 
       <CreateConversationModal
