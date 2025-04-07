@@ -90,7 +90,7 @@ export default function SpeechToMindmap() {
         } else {
           clearInterval(interval);
         }
-      }, 5000);
+      }, 2000);
     } catch (error) {
       console.error("Error accessing microphone:", error);
     }
@@ -291,32 +291,6 @@ export default function SpeechToMindmap() {
         </div>
 
         <div className="space-y-4 p-4 bg-white">
-          {/* Raw JSON display with collapsible section */}
-          <div className="border rounded overflow-hidden">
-            <button
-              onClick={() => setShowJson(!showJson)}
-              className="w-full flex items-center justify-between p-3 bg-gray-50 hover:bg-gray-100 text-left transition-colors"
-            >
-              <div className="flex items-center">
-                <FileJson className="h-4 w-4 mr-2 text-blue-500" />
-                <h3 className="text-sm font-semibold text-gray-700">
-                  Raw JSON Structure
-                </h3>
-              </div>
-              {showJson ? (
-                <ChevronUp className="h-4 w-4" />
-              ) : (
-                <ChevronDown className="h-4 w-4" />
-              )}
-            </button>
-
-            {showJson && (
-              <pre className="text-xs bg-gray-100 p-3 overflow-auto h-[250px] border-t">
-                {JSON.stringify(mindmapData, null, 2)}
-              </pre>
-            )}
-          </div>
-
           {/* Hierarchical text representation with collapsible section */}
           <div className="border rounded overflow-hidden">
             <button

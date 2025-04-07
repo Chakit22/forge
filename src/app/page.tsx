@@ -35,11 +35,11 @@ export default function Home() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-b from-teal-500 to-teal-900">
+    <div className="min-h-screen flex flex-col items-center justify-center bg-black">
       <h1 className="text-7xl font-bold text-white mb-2">FORGE</h1>
       <p className="text-xl text-white mb-10">and never forget ever again</p>
       <Button
-        className="bg-teal-600 hover:bg-teal-700 text-white px-8 py-3 rounded-md"
+        className="bg-white hover:bg-white/80 text-black px-8 py-3 rounded-md font-bold text-xl"
         onClick={handleStart}
         disabled={loading}
       >
