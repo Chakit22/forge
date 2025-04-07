@@ -82,7 +82,7 @@ export default function SpeechToMindmap() {
       mediaRecorder.start();
       setIsRecording(true);
 
-      // Process in chunks every 20 seconds
+      // Process in chunks every 5 seconds
       const interval = setInterval(() => {
         if (mediaRecorderRef.current?.state === "recording") {
           mediaRecorderRef.current.stop();
@@ -90,7 +90,7 @@ export default function SpeechToMindmap() {
         } else {
           clearInterval(interval);
         }
-      }, 20000);
+      }, 5000);
     } catch (error) {
       console.error("Error accessing microphone:", error);
     }
