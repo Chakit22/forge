@@ -71,7 +71,7 @@ This project uses [`next/font`](https://nextjs.org/docs/app/building-your-applic
 
 ## Important Note
 
-**Vercel Function Invocation Limits**: When deploying on Vercel, please note that the Hobby plan has a 10-second limit on function invocations. If your functions exceed this limit, they will timeout and return a 504 error. This can affect features like file processing, AI responses, and other operations that take longer than 10 seconds to complete. Consider optimizing your code or upgrading to a higher plan if you need longer execution times.
+**Vercel Function Invocation Limits**: When deploying on Vercel, please note that the Hobby plan has a 60-second limit on function invocations. If your functions exceed this limit, they will timeout and return a 504 error. This can affect features like file processing, AI responses, and other operations that take longer than 60 seconds to complete. The payload content for attachment also has a limit of 4.5 MB on vercel.
 
 For more information, see [Vercel's documentation on function limitations](https://vercel.com/docs/functions/limitations#max-duration).
 
