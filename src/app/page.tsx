@@ -1,33 +1,16 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
-import { createClient } from "@/utils/supabase/client";
+import { useUser } from "@/context/user-context";
 
 export default function Home() {
   const router = useRouter();
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const checkAuth = async () => {
-      try {
-        const supabase = createClient();
-        const { data } = await supabase.auth.getUser();
-        setIsAuthenticated(!!data.user);
-      } catch (error) {
-        console.error("Error checking authentication:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    checkAuth();
-  }, []);
+  const { user, isLoading } = useUser();
 
   const handleStart = () => {
-    if (isAuthenticated) {
+    if (user) {
       router.push("/dashboard");
     } else {
       router.replace("/login");
@@ -41,9 +24,9 @@ export default function Home() {
       <Button
         className="bg-white hover:bg-white/80 text-black px-8 py-3 rounded-md font-bold text-xl"
         onClick={handleStart}
-        disabled={loading}
+        disabled={isLoading}
       >
-        Start
+        {isLoading ? "Loading..." : "Start"}
       </Button>
     </div>
   );

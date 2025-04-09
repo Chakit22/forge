@@ -95,7 +95,7 @@ export default function ConversationPage({
   const handleSessionEnd = React.useCallback(() => {
     // In a real app, you would save the session data to your API
     toast.success("Session completed!");
-    router.push("/dashboard");
+    router.replace("/dashboard");
   }, [router]);
 
   const fetchConversation = React.useCallback(async (id: number) => {
@@ -111,27 +111,13 @@ export default function ConversationPage({
       if (response.success && response.conversation) {
         setConversation(response.conversation);
 
-        // Only set initial welcome message if we haven't already loaded from storage
-        // and no welcome message exists in the database (indicated by empty messages)
+        // Mark as initialized but don't add the welcome message
         if (!hasInitializedRef.current) {
-          console.log("Setting initial welcome message (UI only, not saved)");
+          console.log("Initializing conversation without welcome message");
           hasInitializedRef.current = true;
 
-          // Create a UI-only welcome message that will never be saved to the database
-          const welcomeMessage: UIMessage = {
-            role: "assistant",
-            content: `Welcome to your ${getLearningOptionDisplay(
-              response.conversation.learning_option
-            )} session! Let's learn about "${getTopicFromSummary(
-              response.conversation.summary
-            )}"`,
-            timestamp: new Date(),
-            status: "sent",
-            // Add a flag to indicate this message should never be saved
-            _doNotSave: true,
-          };
-
-          setMessages([welcomeMessage]);
+          // Initialize with empty messages array instead of welcome message
+          setMessages([]);
         }
       } else {
         setError(response.error || "Failed to fetch conversation");
@@ -461,7 +447,7 @@ export default function ConversationPage({
       const response = await deleteConversation(conversation.id);
       if (response.success) {
         toast.success("Session deleted successfully");
-        router.push("/dashboard");
+        router.replace("/dashboard");
       } else {
         toast.error(response.error || "Failed to delete session");
       }
@@ -791,7 +777,7 @@ export default function ConversationPage({
         <p className="text-red-300 mb-4">{error}</p>
         <Button
           variant="outline"
-          onClick={() => router.push("/dashboard")}
+          onClick={() => router.replace("/dashboard")}
           className="text-white bg-transparent border-white/30 hover:bg-white/10"
         >
           Return to Dashboard
@@ -812,7 +798,7 @@ export default function ConversationPage({
           <Button
             variant="ghost"
             className="text-white p-0 mr-2"
-            onClick={() => router.push("/dashboard")}
+            onClick={() => router.replace("/dashboard")}
           >
             <ArrowLeftIcon className="h-6 w-6" />
           </Button>
@@ -885,7 +871,10 @@ export default function ConversationPage({
                           />
                         ),
                         ul: (props) => (
-                          <ul {...props} className="list-disc pl-5 space-y-1 text-white" />
+                          <ul
+                            {...props}
+                            className="list-disc pl-5 space-y-1 text-white"
+                          />
                         ),
                         ol: (props) => (
                           <ol
@@ -935,12 +924,7 @@ export default function ConversationPage({
                             className="border-l-2 border-white/30 pl-3 italic text-white"
                           />
                         ),
-                        p: (props) => (
-                          <p
-                            {...props}
-                            className="text-white"
-                          />
-                        ),
+                        p: (props) => <p {...props} className="text-white" />,
                       }}
                     >
                       {message.content}

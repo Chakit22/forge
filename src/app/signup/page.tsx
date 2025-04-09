@@ -44,7 +44,7 @@ export default function SignUp() {
         toast.success("Account created successfully!");
         // Redirect to dashboard after successful signup
         console.log("Redirecting to confirmation page");
-        router.replace(`/signup/confirmation?email=${data.email}`);
+        router.push(`/signup/confirmation?email=${data.email}`);
       } else {
         console.error("Signup failed:", response.error);
         toast.error(

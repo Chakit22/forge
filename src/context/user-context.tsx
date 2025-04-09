@@ -6,8 +6,9 @@ import {
   useEffect,
   useState,
   ReactNode,
+  useCallback,
 } from "react";
-// import { createClient } from "@/utils/supabase/client";
+import { createClient } from "@/utils/supabase/client";
 import { getCurrentUser } from "@/app/api/actions";
 
 // Define the user type
@@ -23,6 +24,7 @@ interface UserContextType {
   isLoading: boolean;
   error: Error | null;
   refreshUser: () => Promise<void>;
+  logout: () => Promise<void>;
 }
 
 const UserContext = createContext<UserContextType | undefined>(undefined);
@@ -39,8 +41,6 @@ export function UserProvider({ children }: { children: ReactNode }) {
       setError(null);
 
       const response = await getCurrentUser();
-
-      console.log("reponse : ", response);
 
       if (response.success && response.user) {
         setUser(response.user);
@@ -62,13 +62,39 @@ export function UserProvider({ children }: { children: ReactNode }) {
   };
 
   // Function to manually refresh user data
-  const refreshUser = async () => {
+  const refreshUser = useCallback(async () => {
     await fetchUser();
-  };
+  }, []);
 
-  // Initialize user data on mount and listen for auth changes
+  // Logout function
+  const logout = useCallback(async () => {
+    try {
+      const supabase = createClient();
+      await supabase.auth.signOut();
+      setUser(null);
+    } catch (err) {
+      console.error("Error signing out:", err);
+    }
+  }, []);
+
+  // Listen for auth state changes on the client
   useEffect(() => {
+    const supabase = createClient();
+
+    // Initialize user on mount
     fetchUser();
+
+    // Setup auth state change listener
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, _session) => {
+      // Refresh user data when auth state changes
+      fetchUser();
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
   }, []);
 
   const value = {
@@ -76,6 +102,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
     isLoading,
     error,
     refreshUser,
+    logout,
   };
 
   return <UserContext.Provider value={value}>{children}</UserContext.Provider>;

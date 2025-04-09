@@ -76,12 +76,16 @@ export function CreateConversationModal({
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-md bg-black border-white/10 text-white">
         <DialogHeader>
-          <DialogTitle className="text-white">Create New Learning Session</DialogTitle>
+          <DialogTitle className="text-white">
+            Create New Learning Session
+          </DialogTitle>
         </DialogHeader>
 
         <div className="grid gap-4 py-4">
           <div className="grid gap-2">
-            <Label htmlFor="topic" className="text-white">What would you like to learn?</Label>
+            <Label htmlFor="topic" className="text-white">
+              What would you like to learn?
+            </Label>
             <Input
               id="topic"
               placeholder="Enter a topic"
@@ -92,42 +96,105 @@ export function CreateConversationModal({
           </div>
 
           <div className="grid gap-2">
-            <Label htmlFor="learning-option" className="text-white">Learning Method</Label>
+            <Label htmlFor="learning-option" className="text-white">
+              Learning Method
+            </Label>
             <Select value={learningOption} onValueChange={setLearningOption}>
-              <SelectTrigger id="learning-option" className="border-white/20 bg-black/70 text-white">
+              <SelectTrigger
+                id="learning-option"
+                className="border-white/20 bg-black/70 text-white"
+              >
                 <SelectValue placeholder="Select a learning method" />
               </SelectTrigger>
               <SelectContent className="bg-black border-white/20 text-white">
-                <SelectItem value="memorizing" className="focus:bg-white/10 focus:text-white">Memorization</SelectItem>
-                <SelectItem value="understanding" className="focus:bg-white/10 focus:text-white">Understanding</SelectItem>
-                <SelectItem value="testing" className="focus:bg-white/10 focus:text-white">Testing Knowledge</SelectItem>
-                <SelectItem value="reinforcement" className="focus:bg-white/10 focus:text-white">Reinforcement</SelectItem>
+                <SelectItem
+                  value="memorizing"
+                  className="focus:bg-white/10 focus:text-white"
+                >
+                  Memorization
+                </SelectItem>
+                <SelectItem
+                  value="understanding"
+                  className="focus:bg-white/10 focus:text-white"
+                >
+                  Understanding
+                </SelectItem>
+                <SelectItem
+                  value="testing"
+                  className="focus:bg-white/10 focus:text-white"
+                >
+                  Testing Knowledge
+                </SelectItem>
+                <SelectItem
+                  value="reinforcement"
+                  className="focus:bg-white/10 focus:text-white"
+                >
+                  Reinforcement
+                </SelectItem>
               </SelectContent>
             </Select>
           </div>
 
           <div className="grid gap-2">
-            <Label htmlFor="duration" className="text-white">Session Duration</Label>
+            <Label htmlFor="duration" className="text-white">
+              Session Duration
+            </Label>
             <Select value={duration} onValueChange={setDuration}>
-              <SelectTrigger id="duration" className="border-white/20 bg-black/70 text-white">
+              <SelectTrigger
+                id="duration"
+                className="border-white/20 bg-black/70 text-white"
+              >
                 <SelectValue placeholder="Select session duration" />
               </SelectTrigger>
               <SelectContent className="bg-black border-white/20 text-white">
-                <SelectItem value="PT15M" className="focus:bg-white/10 focus:text-white">15 minutes</SelectItem>
-                <SelectItem value="PT30M" className="focus:bg-white/10 focus:text-white">30 minutes</SelectItem>
-                <SelectItem value="PT45M" className="focus:bg-white/10 focus:text-white">45 minutes</SelectItem>
-                <SelectItem value="PT1H" className="focus:bg-white/10 focus:text-white">1 hour</SelectItem>
-                <SelectItem value="PT2H" className="focus:bg-white/10 focus:text-white">2 hours</SelectItem>
+                <SelectItem
+                  value="PT15M"
+                  className="focus:bg-white/10 focus:text-white"
+                >
+                  15 minutes
+                </SelectItem>
+                <SelectItem
+                  value="PT30M"
+                  className="focus:bg-white/10 focus:text-white"
+                >
+                  30 minutes
+                </SelectItem>
+                <SelectItem
+                  value="PT45M"
+                  className="focus:bg-white/10 focus:text-white"
+                >
+                  45 minutes
+                </SelectItem>
+                <SelectItem
+                  value="PT1H"
+                  className="focus:bg-white/10 focus:text-white"
+                >
+                  1 hour
+                </SelectItem>
+                <SelectItem
+                  value="PT2H"
+                  className="focus:bg-white/10 focus:text-white"
+                >
+                  2 hours
+                </SelectItem>
               </SelectContent>
             </Select>
           </div>
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={onClose} className="text-white border-white/20 hover:bg-white/10 hover:text-white">
+          <Button
+            variant="outline"
+            onClick={onClose}
+            className="text-white border-white/20 hover:bg-white/10 hover:text-white"
+          >
             Cancel
           </Button>
-          <Button onClick={handleSubmit} disabled={isSubmitting} className="bg-white/20 text-white hover:bg-white/30">
+          <Button
+            onClick={handleSubmit}
+            disabled={isSubmitting}
+            className="bg-white/20 text-white hover:bg-white/30"
+          >
             {isSubmitting ? "Creating..." : "Create Session"}
           </Button>
         </DialogFooter>

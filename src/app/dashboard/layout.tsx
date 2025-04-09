@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { Sidebar } from "@/components/dashboard/sidebar";
 import { Header } from "@/components/dashboard/header";
 import { useUser } from "@/context/user-context";
@@ -13,6 +13,7 @@ export default function DashboardLayout({
 }) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const router = useRouter();
+  const pathname = usePathname();
   const { user, isLoading } = useUser();
 
   // Redirect to login if not authenticated
@@ -26,13 +27,10 @@ export default function DashboardLayout({
   useEffect(() => {
     // Any time dashboard layout is mounted, add route change handler
     const handleRouteChange = () => {
-      console.log("Route changed, clearing conversation event trackers");
-
       // Clear conversation event dispatch tracking
       if (typeof window !== "undefined") {
         if (window.__conversationEventsDispatched) {
           window.__conversationEventsDispatched = new Set();
-          console.log("Cleared conversation event dispatch tracking");
         }
       }
     };
@@ -47,9 +45,6 @@ export default function DashboardLayout({
       if (typeof window !== "undefined") {
         if (window.__conversationEventsDispatched) {
           window.__conversationEventsDispatched = new Set();
-          console.log(
-            "Cleared conversation event dispatch tracking on dashboard unmount"
-          );
         }
       }
     };
@@ -59,6 +54,7 @@ export default function DashboardLayout({
     setIsSidebarOpen(!isSidebarOpen);
   };
 
+  // Show loading state while checking auth
   if (isLoading) {
     return (
       <div className="flex h-screen items-center justify-center bg-black">
@@ -67,8 +63,9 @@ export default function DashboardLayout({
     );
   }
 
+  // Don't render anything if not authenticated - let the redirect handle it
   if (!user) {
-    return null; // Will be redirected by the useEffect
+    return null;
   }
 
   return (

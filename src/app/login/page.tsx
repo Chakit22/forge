@@ -19,13 +19,13 @@ export default function SignIn() {
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState<boolean>(true);
-  const { user } = useUser();
+  const { user, isLoading: userLoading, refreshUser } = useUser();
 
   useEffect(() => {
-    if (user) {
+    if (!userLoading && user) {
       router.replace("/dashboard");
     }
-  }, [user, router]);
+  }, [user, userLoading, router]);
 
   const {
     register,
@@ -43,15 +43,15 @@ export default function SignIn() {
     setError(null);
 
     try {
-      console.log("Starting login for:", data.email);
       const response = await login(data);
-      console.log("Login response:", response);
 
       if (response.success) {
-        console.log("Login successful, redirecting to dashboard");
+        toast.success("Logged in successfully");
+
+        await refreshUser();
+
         router.replace("/dashboard");
       } else {
-        console.error("Login failed:", response.error);
         setError(response.error || "Invalid email or password");
         toast.error("Error during signing in. Please try again.");
       }
