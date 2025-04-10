@@ -1,6 +1,24 @@
 import { NextResponse } from 'next/server';
 import { getWeaviateClient } from '@/utils/weaviate/client';
 
+// Define interface for Weaviate quiz result objects
+interface WeaviateQuizResult {
+  userId?: string;
+  quizId?: string;
+  conversationId?: string;
+  score?: number;
+  totalQuestions?: number;
+  feedback?: string;
+  learningOption?: string;
+  strengthAreas?: string[];
+  weaknessAreas?: string[];
+  timestamp?: string;
+  _additional?: {
+    id?: string;
+  };
+  [key: string]: any; // For any other properties that might be present
+}
+
 export async function GET() {
   try {
     const client = getWeaviateClient();
@@ -17,7 +35,7 @@ export async function GET() {
     console.log(`Found ${quizResults.length} quiz results in Weaviate`);
 
     // Format results with proper id field from _additional.id
-    const formattedResults = quizResults.map(result => ({
+    const formattedResults = quizResults.map((result: WeaviateQuizResult) => ({
       id: result._additional?.id,
       ...result
     }));

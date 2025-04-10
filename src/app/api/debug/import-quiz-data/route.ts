@@ -114,11 +114,14 @@ export async function POST(request: Request) {
     const client = getWeaviateClient();
     
     // Import the data directly
-    const importedId = await client.data
+    const importResult = await client.data
       .creator()
       .withClassName('QuizResult')
       .withProperties(formattedData)
       .do();
+    
+    // Extract the ID string from the result
+    const importedId = importResult.id as string;
     
     console.log(`Imported quiz data with ID: ${importedId}`);
     

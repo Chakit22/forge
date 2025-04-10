@@ -3,6 +3,16 @@ import { getCurrentUser } from '@/app/api/actions';
 import { getWeaviateClient } from '@/utils/weaviate/client';
 import { quizResultService } from '@/utils/weaviate/dataService';
 
+// Define response item interface to fix TypeScript errors
+interface QuizResponseItem {
+  questionId: number;
+  question: string;
+  selectedOptionIndex: number;
+  correctOptionIndex: number;
+  isCorrect: boolean;
+  [key: string]: any; // For any other potential properties
+}
+
 export async function GET() {
   try {
     // Get the current user
@@ -73,7 +83,7 @@ export async function GET() {
                          result.weaknessAreas ? [result.weaknessAreas] : [],
           
           // Handle responses array - ensure it's in the correct format
-          responses: Array.isArray(result.responses) ? result.responses.map(resp => ({
+          responses: Array.isArray(result.responses) ? result.responses.map((resp: QuizResponseItem) => ({
             questionId: resp.questionId,
             question: resp.question,
             selectedOptionIndex: resp.selectedOptionIndex,

@@ -94,7 +94,7 @@ export default function UserQuizResults() {
           setQuizResults(data.results);
           
           // Check if results have the expected properties
-          const hasValidResults = data.results.some(r => 
+          const hasValidResults = data.results.some((r: QuizResult) => 
             r && r.id && r.score !== undefined && r.total_questions !== undefined
           );
           
