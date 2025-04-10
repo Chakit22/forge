@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 // import { UserInfo } from "@/components/user-info";
 import { ConversationList } from "@/components/conversation-list";
 import { Button } from "@/components/ui/button";
@@ -9,6 +9,20 @@ import UserQuizResults from "@/components/UserQuizResults";
 
 export default function Dashboard() {
   const [isModalOpen, setIsModalOpen] = useState(false);
+
+  // Refresh the sidebar when the dashboard page loads
+  useEffect(() => {
+    console.log("Dashboard page mounted, refreshing conversations");
+    const updateEvent = new CustomEvent("conversation-updated");
+    window.dispatchEvent(updateEvent);
+  }, []);
+
+  const handleModalClose = () => {
+    setIsModalOpen(false);
+    // Also refresh conversations when modal closes
+    const updateEvent = new CustomEvent("conversation-updated");
+    window.dispatchEvent(updateEvent);
+  };
 
   return (
     <div className="max-w-6xl mx-auto">
@@ -48,7 +62,7 @@ export default function Dashboard() {
 
       <CreateConversationModal
         isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
+        onClose={handleModalClose}
       />
     </div>
   );

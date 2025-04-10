@@ -9,6 +9,7 @@ export async function GET(
   try {
     const resolvedParams = await params;
     const conversationId = resolvedParams.id;
+
     if (!conversationId) {
       return NextResponse.json(
         { error: 'Conversation ID is required' },

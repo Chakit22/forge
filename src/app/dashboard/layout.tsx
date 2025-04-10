@@ -27,16 +27,34 @@ export default function DashboardLayout({
   useEffect(() => {
     // Any time dashboard layout is mounted, add route change handler
     const handleRouteChange = () => {
+      console.log("Route changed in dashboard layout");
+
       // Clear conversation event dispatch tracking
       if (typeof window !== "undefined") {
         if (window.__conversationEventsDispatched) {
           window.__conversationEventsDispatched = new Set();
         }
       }
+
+      // Trigger sidebar refresh when returning to dashboard
+      if (pathname === "/dashboard") {
+        console.log("Returned to dashboard, triggering conversation update");
+        const updateEvent = new CustomEvent("conversation-updated");
+        window.dispatchEvent(updateEvent);
+      }
     };
 
     // Listen for route changes in the dashboard
     window.addEventListener("popstate", handleRouteChange);
+
+    // Also trigger sidebar refresh when dashboard is mounted
+    if (pathname === "/dashboard") {
+      console.log("Dashboard mounted, triggering initial conversation update");
+      setTimeout(() => {
+        const updateEvent = new CustomEvent("conversation-updated");
+        window.dispatchEvent(updateEvent);
+      }, 100); // Short delay to ensure components are mounted
+    }
 
     return () => {
       window.removeEventListener("popstate", handleRouteChange);
@@ -48,7 +66,7 @@ export default function DashboardLayout({
         }
       }
     };
-  }, []);
+  }, [pathname]);
 
   const toggleSidebar = () => {
     setIsSidebarOpen(!isSidebarOpen);

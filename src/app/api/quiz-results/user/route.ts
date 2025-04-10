@@ -154,17 +154,18 @@ export async function GET() {
       let totalQuestions = result.totalQuestions || result.total_questions || 0;
       const feedback = result.feedback || '';
       const learningOption = result.learningOption || result.learning_option || 'unknown';
+
       const strengthAreas = Array.isArray(result.strengthAreas) 
         ? result.strengthAreas 
-        : Array.isArray(result.strength_areas)
-          ? result.strength_areas 
+        : Array.isArray(result.strengthAreas)
+          ? result.strengthAreas 
           : [];
       const weaknessAreas = Array.isArray(result.weaknessAreas) 
         ? result.weaknessAreas 
-        : Array.isArray(result.weakness_areas)
-          ? result.weakness_areas 
+        : Array.isArray(result.weaknessAreas)
+          ? result.weaknessAreas 
           : [];
-      let timestamp = result.timestamp || result.created_at || new Date().toISOString();
+      let timestamp = result.timestamp || result.timestamp || new Date().toISOString();
       
       // Ensure proper types
       if (typeof score !== 'number') {

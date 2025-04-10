@@ -99,7 +99,8 @@ export default function ConversationPage({
   // Add state for quiz results dialog
   const [isQuizResultsDialogOpen, setIsQuizResultsDialogOpen] = useState(false);
   const [isQuizHistoryDialogOpen, setIsQuizHistoryDialogOpen] = useState(false);
-  const [selectedQuizResult, setSelectedQuizResult] = useState<QuizResult | null>(null);
+  const [selectedQuizResult, setSelectedQuizResult] =
+    useState<QuizResult | null>(null);
 
   // Add ref to track if we've initialized messages
   const hasInitializedRef = useRef(false);
@@ -223,19 +224,27 @@ export default function ConversationPage({
       setIsMessagesLoading(false);
       return;
     }
-    
-    console.log(`Directly fetching messages for conversation ${unwrappedParams.id} from API (attempt ${loadingAttemptsRef.current + 1})`);
+
+    console.log(
+      `Directly fetching messages for conversation ${
+        unwrappedParams.id
+      } from API (attempt ${loadingAttemptsRef.current + 1})`
+    );
     loadingAttemptsRef.current += 1;
     setIsMessagesLoading(true);
-    
+
     try {
       // First try loading from localStorage as it's faster
       try {
-        const savedMessages = localStorage.getItem(`conversation_${unwrappedParams.id}_messages`);
+        const savedMessages = localStorage.getItem(
+          `conversation_${unwrappedParams.id}_messages`
+        );
         if (savedMessages) {
           const parsedMessages = JSON.parse(savedMessages) as UIMessage[];
           if (Array.isArray(parsedMessages) && parsedMessages.length > 0) {
-            console.log(`Loaded ${parsedMessages.length} messages from localStorage`);
+            console.log(
+              `Loaded ${parsedMessages.length} messages from localStorage`
+            );
             setMessages(parsedMessages);
             hasLoadedFromStorageRef.current = true;
             hasInitializedRef.current = true;
@@ -246,32 +255,36 @@ export default function ConversationPage({
       } catch (e) {
         console.error("Error retrieving messages from localStorage:", e);
       }
-      
+
       // If localStorage fails, try the API
-      const response = await fetch(`/api/messages/conversation/${unwrappedParams.id}`);
-      
+      const response = await fetch(
+        `/api/messages/conversation/${unwrappedParams.id}`
+      );
+
       if (!response.ok) {
         throw new Error(`Error fetching messages: ${response.status}`);
       }
-      
+
       const data = await response.json();
-      
+
       if (data.success && Array.isArray(data.messages)) {
-        console.log(`Successfully loaded ${data.messages.length} messages from API`);
-        
+        console.log(
+          `Successfully loaded ${data.messages.length} messages from API`
+        );
+
         // Convert API message format to UI message format if needed
         const uiMessages: UIMessage[] = data.messages.map((msg: any) => ({
           id: msg.id,
           role: msg.role,
           content: msg.content,
           timestamp: new Date(msg.timestamp),
-          status: "sent"
+          status: "sent",
         }));
-        
+
         setMessages(uiMessages);
         hasLoadedFromStorageRef.current = true;
         hasInitializedRef.current = true;
-        
+
         // Also save to localStorage for future use
         try {
           localStorage.setItem(
@@ -315,14 +328,12 @@ export default function ConversationPage({
     }
   }, [unwrappedParams.id, conversation]);
 
-  // Define scheduleMessageRetry separately
   const scheduleMessageRetry = React.useCallback(() => {
     // Clear any existing timeout
     if (messageLoadTimeoutRef.current) {
       clearTimeout(messageLoadTimeoutRef.current);
     }
-    
-    // Only retry if we haven't reached the maximum number of attempts
+
     if (loadingAttemptsRef.current >= 3) {
       console.log("Maximum retry attempts reached, stopping retries");
       setIsMessagesLoading(false);
@@ -331,11 +342,11 @@ export default function ConversationPage({
       hasInitializedRef.current = true;
       return;
     }
-    
+
     // Calculate backoff time (1s, 3s, 9s)
     const backoffTime = Math.pow(3, loadingAttemptsRef.current) * 1000;
     console.log(`Scheduling message retry in ${backoffTime}ms`);
-    
+
     messageLoadTimeoutRef.current = setTimeout(() => {
       fetchMessagesFromAPI();
     }, backoffTime);
@@ -386,50 +397,53 @@ export default function ConversationPage({
   }, [isMessagesLoading, setMessages]);
 
   // Handle messages loaded from the load-messages event
-  const handleLoadMessages = React.useCallback((event: CustomEvent<UIMessage[]>) => {
-    if (
-      !event.detail ||
-      !Array.isArray(event.detail) ||
-      event.detail.length === 0
-    ) {
-      console.log(
-        "Received empty messages array from load-messages event, ignoring"
-      );
-      return;
-    }
-
-    console.log(
-      `Received load-messages event with ${event.detail.length} messages, current hasLoadedFromStorage: ${hasLoadedFromStorageRef.current}`
-    );
-
-    // Only process the event if we haven't already loaded messages
-    if (!hasLoadedFromStorageRef.current) {
-      // Mark that we've loaded messages from storage to prevent duplicate initialization
-      hasLoadedFromStorageRef.current = true;
-      hasInitializedRef.current = true;
-      
-      // Clear any pending retry timeouts
-      if (messageLoadTimeoutRef.current) {
-        clearTimeout(messageLoadTimeoutRef.current);
-        messageLoadTimeoutRef.current = null;
+  const handleLoadMessages = React.useCallback(
+    (event: CustomEvent<UIMessage[]>) => {
+      if (
+        !event.detail ||
+        !Array.isArray(event.detail) ||
+        event.detail.length === 0
+      ) {
+        console.log(
+          "Received empty messages array from load-messages event, ignoring"
+        );
+        return;
       }
 
       console.log(
-        `Loading ${event.detail.length} messages from storage event, flags updated`
+        `Received load-messages event with ${event.detail.length} messages, current hasLoadedFromStorage: ${hasLoadedFromStorageRef.current}`
       );
-      setIsMessagesLoading(false);
-      setMessages(event.detail);
-    } else {
-      console.log(
-        "Ignoring load-messages event as we already loaded messages"
-      );
-    }
-  }, []);
+
+      // Only process the event if we haven't already loaded messages
+      if (!hasLoadedFromStorageRef.current) {
+        // Mark that we've loaded messages from storage to prevent duplicate initialization
+        hasLoadedFromStorageRef.current = true;
+        hasInitializedRef.current = true;
+
+        // Clear any pending retry timeouts
+        if (messageLoadTimeoutRef.current) {
+          clearTimeout(messageLoadTimeoutRef.current);
+          messageLoadTimeoutRef.current = null;
+        }
+
+        console.log(
+          `Loading ${event.detail.length} messages from storage event, flags updated`
+        );
+        setIsMessagesLoading(false);
+        setMessages(event.detail);
+      } else {
+        console.log(
+          "Ignoring load-messages event as we already loaded messages"
+        );
+      }
+    },
+    []
+  );
 
   // Add an effect to listen for saved messages from the wrapper component
   useEffect(() => {
     console.log("Setting up load-messages event listener");
-    
+
     // Set messages loading state when we start trying to load
     setIsMessagesLoading(true);
 
@@ -438,11 +452,17 @@ export default function ConversationPage({
       "load-messages",
       handleLoadMessages as EventListener
     );
-    
+
     // Set a timeout to check if we've loaded messages, and if not, try to load them directly
     messageLoadTimeoutRef.current = setTimeout(() => {
-      if (!hasLoadedFromStorageRef.current && unwrappedParams.id && conversation) {
-        console.log("No messages loaded via event after timeout, trying direct fetch");
+      if (
+        !hasLoadedFromStorageRef.current &&
+        unwrappedParams.id &&
+        conversation
+      ) {
+        console.log(
+          "No messages loaded via event after timeout, trying direct fetch"
+        );
         fetchMessagesFromAPI();
       }
     }, 3000); // Wait 3 seconds for the event before trying direct API call
@@ -454,22 +474,27 @@ export default function ConversationPage({
         "load-messages",
         handleLoadMessages as EventListener
       );
-      
+
       // Clear any pending timeouts
       if (messageLoadTimeoutRef.current) {
         clearTimeout(messageLoadTimeoutRef.current);
         messageLoadTimeoutRef.current = null;
       }
     };
-  }, [unwrappedParams.id, conversation, fetchMessagesFromAPI, handleLoadMessages]);
+  }, [
+    unwrappedParams.id,
+    conversation,
+    fetchMessagesFromAPI,
+    handleLoadMessages,
+  ]);
 
   // When conversation is loaded but messages are empty, try to fetch them
   useEffect(() => {
     if (
-      conversation && 
-      !hasLoadedFromStorageRef.current && 
-      !isLoading && 
-      messages.length === 0 && 
+      conversation &&
+      !hasLoadedFromStorageRef.current &&
+      !isLoading &&
+      messages.length === 0 &&
       loadingAttemptsRef.current === 0
     ) {
       console.log("Conversation loaded but no messages, trying direct fetch");
@@ -484,7 +509,7 @@ export default function ConversationPage({
       hasInitializedRef.current = false;
       hasLoadedFromStorageRef.current = false;
       loadingAttemptsRef.current = 0;
-      
+
       if (messageLoadTimeoutRef.current) {
         clearTimeout(messageLoadTimeoutRef.current);
         messageLoadTimeoutRef.current = null;
@@ -717,7 +742,7 @@ export default function ConversationPage({
     } catch (error) {
       console.error("Error sending message:", error);
       // Add user-facing error message
-      toast.error("Failed to get response from AI");
+      toast.error("Payload is too large. Please try uploading a smaller file.");
 
       // Update message status to show error
       setMessages((prev) =>
@@ -736,6 +761,12 @@ export default function ConversationPage({
     try {
       const response = await deleteConversation(conversation.id);
       if (response.success) {
+        // Dispatch event to notify sidebar about deleted conversation
+        const deleteEvent = new CustomEvent("conversation-deleted", {
+          detail: { id: conversation.id },
+        });
+        window.dispatchEvent(deleteEvent);
+
         toast.success("Session deleted successfully");
         router.replace("/dashboard");
       } else {
@@ -1025,25 +1056,31 @@ export default function ConversationPage({
   // Move fetchQuizResults function declaration to before the useEffect that uses it
   const fetchQuizResults = React.useCallback(async () => {
     if (!unwrappedParams.id) return [];
-    
+
     try {
       setIsLoadingQuizResults(true);
-      console.log(`Fetching quiz results for conversation ${unwrappedParams.id}`);
-      
+      console.log(
+        `Fetching quiz results for conversation ${unwrappedParams.id}`
+      );
+
       // First try the new endpoint
-      let response = await fetch(`/api/quiz-results/conversation/${unwrappedParams.id}`);
-      
+      let response = await fetch(
+        `/api/quiz-results/conversation/${unwrappedParams.id}`
+      );
+
       if (!response.ok) {
         console.error(`Failed to fetch quiz results: ${response.status}`);
         throw new Error(`Failed to fetch quiz results: ${response.status}`);
       }
-      
+
       let data = await response.json();
-      
+
       if (data.success && Array.isArray(data.results)) {
-        console.log(`Loaded ${data.results.length} quiz results for conversation`);
+        console.log(
+          `Loaded ${data.results.length} quiz results for conversation`
+        );
         setQuizResultsList(data.results);
-        
+
         // If results are found, use the most recent one for display
         if (data.results.length > 0) {
           const latestResult = data.results[0]; // Assuming results are sorted by date
@@ -1055,22 +1092,27 @@ export default function ConversationPage({
         }
         return [];
       } else {
-        console.warn('No quiz results found for this conversation or API returned an error', data.error);
+        console.warn(
+          "No quiz results found for this conversation or API returned an error",
+          data.error
+        );
         // Try getting all user's quiz results as fallback
-        response = await fetch('/api/quiz-results/user');
+        response = await fetch("/api/quiz-results/user");
         if (response.ok) {
           data = await response.json();
           if (data.success && Array.isArray(data.results)) {
             // Filter for results that might be related to this conversation
-            const filtered = data.results.filter((r: { conversation_id?: string }) => 
-              r.conversation_id === unwrappedParams.id ||
-              !r.conversation_id // Include results with no conversation ID
+            const filtered = data.results.filter(
+              (r: { conversation_id?: string }) =>
+                r.conversation_id === unwrappedParams.id || !r.conversation_id // Include results with no conversation ID
             );
-            
+
             if (filtered.length > 0) {
-              console.log(`Found ${filtered.length} quiz results from user's history that match this conversation`);
+              console.log(
+                `Found ${filtered.length} quiz results from user's history that match this conversation`
+              );
               setQuizResultsList(filtered);
-              
+
               // Use the most recent one for display
               const latestResult = filtered[0];
               setQuizFeedback(latestResult.feedback || "");
@@ -1084,7 +1126,7 @@ export default function ConversationPage({
       }
       return [];
     } catch (error) {
-      console.error('Error fetching quiz results:', error);
+      console.error("Error fetching quiz results:", error);
       return [];
     } finally {
       setIsLoadingQuizResults(false);
@@ -1358,14 +1400,22 @@ export default function ConversationPage({
               <div className="flex flex-col items-center justify-center h-64 w-full">
                 <div className="flex space-x-3 items-center bg-slate-900 rounded-lg p-4">
                   <div className="w-3 h-3 bg-white rounded-full animate-pulse"></div>
-                  <div className="w-3 h-3 bg-white rounded-full animate-pulse" style={{ animationDelay: "0.2s" }}></div>
-                  <div className="w-3 h-3 bg-white rounded-full animate-pulse" style={{ animationDelay: "0.4s" }}></div>
+                  <div
+                    className="w-3 h-3 bg-white rounded-full animate-pulse"
+                    style={{ animationDelay: "0.2s" }}
+                  ></div>
+                  <div
+                    className="w-3 h-3 bg-white rounded-full animate-pulse"
+                    style={{ animationDelay: "0.4s" }}
+                  ></div>
                 </div>
                 <p className="text-white mt-4">Loading messages...</p>
               </div>
             ) : hasLoadedFromStorageRef.current ? (
               <div className="flex flex-col items-center justify-center h-64 w-full">
-                <p className="text-white text-center">No messages yet. Start the conversation!</p>
+                <p className="text-white text-center">
+                  No messages yet. Start the conversation!
+                </p>
               </div>
             ) : (
               <div className="flex flex-col items-center justify-center h-64 w-full">
@@ -1588,7 +1638,7 @@ export default function ConversationPage({
                 Refresh
               </Button>
             </div>
-            
+
             {isLoadingQuizResults ? (
               <div className="flex justify-center p-4">
                 <p className="text-white">Loading quiz results...</p>
@@ -1604,10 +1654,15 @@ export default function ConversationPage({
                     <div className="flex justify-between items-start">
                       <div>
                         <h4 className="font-medium text-white">
-                          Quiz {index + 1}: {Math.round(result.score / result.total_questions * 100)}% Score
+                          Quiz {index + 1}:{" "}
+                          {Math.round(
+                            (result.score / result.total_questions) * 100
+                          )}
+                          % Score
                         </h4>
                         <p className="text-sm text-white/70">
-                          {formatDate(result.created_at)} • {result.score}/{result.total_questions} correct
+                          {formatDate(result.created_at)} • {result.score}/
+                          {result.total_questions} correct
                         </p>
                       </div>
                       <Button

@@ -56,6 +56,11 @@ export function CreateConversationModal({
 
       if (response.success) {
         toast.success("Created new learning session!");
+
+        // Dispatch event to update sidebar with new conversation
+        const updateEvent = new CustomEvent("conversation-updated");
+        window.dispatchEvent(updateEvent);
+
         onClose();
         if (response.conversation?.id) {
           // Navigate to the conversation detail page
@@ -91,7 +96,7 @@ export function CreateConversationModal({
               placeholder="Enter a topic"
               value={topic}
               onChange={(e) => setTopic(e.target.value)}
-              className="border-white/20 bg-black/70 text-white placeholder:text-white/50"
+              className="border-white/20 bg-black/70 text-white focus:bg-white/10 focus:text-white"
             />
           </div>
 
@@ -118,18 +123,6 @@ export function CreateConversationModal({
                   className="focus:bg-white/10 focus:text-white"
                 >
                   Understanding
-                </SelectItem>
-                <SelectItem
-                  value="testing"
-                  className="focus:bg-white/10 focus:text-white"
-                >
-                  Testing Knowledge
-                </SelectItem>
-                <SelectItem
-                  value="reinforcement"
-                  className="focus:bg-white/10 focus:text-white"
-                >
-                  Reinforcement
                 </SelectItem>
               </SelectContent>
             </Select>
@@ -186,14 +179,15 @@ export function CreateConversationModal({
           <Button
             variant="outline"
             onClick={onClose}
-            className="text-white border-white/20 hover:bg-white/10 hover:text-white"
+            className="text-white border-white/20 hover:bg-white/10 hover:text-white bg-black/70"
           >
             Cancel
           </Button>
           <Button
+            variant="outline"
             onClick={handleSubmit}
             disabled={isSubmitting}
-            className="bg-white/20 text-white hover:bg-white/30"
+            className="text-white border-white/20 hover:bg-white/10 hover:text-white bg-black/70"
           >
             {isSubmitting ? "Creating..." : "Create Session"}
           </Button>
