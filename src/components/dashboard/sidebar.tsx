@@ -1,13 +1,21 @@
 "use client";
 
 import Link from "next/link";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { CreateConversationModal } from "@/components/create-conversation-modal";
 import { getUserConversations } from "@/app/api/actions";
 import type { Conversation } from "@/app/api/actions";
+
+// Define the custom event for conversation updates
+declare global {
+  interface WindowEventMap {
+    "conversation-updated": CustomEvent;
+    "conversation-deleted": CustomEvent<{ id: number }>;
+  }
+}
 
 interface SidebarProps {
   className?: string;
@@ -23,11 +31,9 @@ export function Sidebar({ className }: SidebarProps) {
   const [categories, setCategories] = useState<Category[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    fetchConversations();
-  }, []);
-
-  const fetchConversations = async () => {
+  // Use useCallback to memoize the fetchConversations function
+  const fetchConversations = useCallback(async () => {
+    console.log("Fetching conversations for sidebar");
     setIsLoading(true);
     try {
       const response = await getUserConversations();
@@ -64,11 +70,65 @@ export function Sidebar({ className }: SidebarProps) {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
+
+  // Initial fetch on component mount
+  useEffect(() => {
+    fetchConversations();
+  }, [fetchConversations]);
+
+  // Listen for conversation events
+  useEffect(() => {
+    // Handler for when a conversation is deleted
+    const handleConversationDeleted = (event: CustomEvent<{ id: number }>) => {
+      console.log(
+        `Conversation deleted event received for ID: ${event.detail.id}`
+      );
+
+      // Update categories and remove the deleted conversation
+      setCategories((prevCategories) =>
+        prevCategories
+          .map((category) => ({
+            ...category,
+            conversations: category.conversations.filter(
+              (convo) => convo.id !== event.detail.id
+            ),
+          }))
+          // Remove empty categories
+          .filter((category) => category.conversations.length > 0)
+      );
+    };
+
+    // Handler for when conversations are updated (created, etc.)
+    const handleConversationUpdated = () => {
+      console.log("Conversation updated event received, refreshing sidebar");
+      fetchConversations();
+    };
+
+    // Add event listeners
+    window.addEventListener("conversation-deleted", handleConversationDeleted);
+    window.addEventListener("conversation-updated", handleConversationUpdated);
+
+    // Clean up event listeners on unmount
+    return () => {
+      window.removeEventListener(
+        "conversation-deleted",
+        handleConversationDeleted
+      );
+      window.removeEventListener(
+        "conversation-updated",
+        handleConversationUpdated
+      );
+    };
+  }, [fetchConversations]);
 
   const handleCreateSuccess = () => {
     setIsModalOpen(false);
     fetchConversations();
+
+    // Also dispatch an event to notify other components
+    const updateEvent = new CustomEvent("conversation-updated");
+    window.dispatchEvent(updateEvent);
   };
 
   // Format the summary for display in sidebar
@@ -83,7 +143,9 @@ export function Sidebar({ className }: SidebarProps) {
   };
 
   return (
-    <div className={cn("pb-12 w-64 bg-black border-r border-white/10", className)}>
+    <div
+      className={cn("pb-12 w-64 bg-black border-r border-white/10", className)}
+    >
       <div className="space-y-4 py-4">
         <div className="px-4 py-2">
           <Button
@@ -211,14 +273,14 @@ function BarChartIcon(props: React.SVGProps<SVGSVGElement>) {
   return (
     <svg
       {...props}
-      xmlns="http://www.w3.org/2000/svg" 
-      width="24" 
-      height="24" 
-      viewBox="0 0 24 24" 
-      fill="none" 
-      stroke="currentColor" 
-      strokeWidth="2" 
-      strokeLinecap="round" 
+      xmlns="http://www.w3.org/2000/svg"
+      width="24"
+      height="24"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
       strokeLinejoin="round"
     >
       <line x1="12" y1="20" x2="12" y2="10" />

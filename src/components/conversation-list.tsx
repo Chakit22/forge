@@ -56,6 +56,13 @@ export function ConversationList() {
       if (response.success) {
         // Remove the deleted conversation from state
         setConversations((prev) => prev.filter((c) => c.id !== id));
+
+        // Dispatch event to notify other components about deletion
+        const deleteEvent = new CustomEvent("conversation-deleted", {
+          detail: { id },
+        });
+        window.dispatchEvent(deleteEvent);
+
         toast.success("Conversation deleted successfully");
       } else {
         toast.error(response.error || "Failed to delete conversation");
@@ -167,10 +174,7 @@ export function ConversationList() {
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-between items-center">
-        <h2 className="text-xl font-semibold text-white">
-          Recent Learning Sessions
-        </h2>
+      <div className="flex justify-end">
         <Button
           variant="ghost"
           size="sm"

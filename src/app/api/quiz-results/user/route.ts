@@ -90,20 +90,20 @@ export async function GET() {
       const props = Object.keys(result).filter(k => k !== '_additional');
       
       // First try standard camelCase format
-      let id = result.id || '';
-      let quizId = result.quizId || result.quiz_id || '';
-      let userId = result.userId || result.user_id || '';
-      let conversationId = result.conversationId || result.conversation_id || '';
-      let score = result.score || 0;
-      let totalQuestions = result.totalQuestions || result.total_questions || 0;
-      let feedback = result.feedback || '';
-      let learningOption = result.learningOption || result.learning_option || 'unknown';
-      let strengthAreas = Array.isArray(result.strengthAreas) 
+      const id = result.id || '';
+      const quizId = result.quizId || result.quiz_id || '';
+      const userId = result.userId || result.user_id || '';
+      const conversationId = result.conversationId || result.conversation_id || '';
+      const score = result.score || 0;
+      const totalQuestions = result.totalQuestions || result.total_questions || 0;
+      const feedback = result.feedback || '';
+      const learningOption = result.learningOption || result.learning_option || 'unknown';
+      const strengthAreas = Array.isArray(result.strengthAreas) 
         ? result.strengthAreas 
         : Array.isArray(result.strength_areas)
           ? result.strength_areas 
           : [];
-      let weaknessAreas = Array.isArray(result.weaknessAreas) 
+      const weaknessAreas = Array.isArray(result.weaknessAreas) 
         ? result.weaknessAreas 
         : Array.isArray(result.weakness_areas)
           ? result.weakness_areas 
