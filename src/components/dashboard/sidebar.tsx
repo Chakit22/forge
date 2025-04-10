@@ -164,7 +164,7 @@ export function Sidebar({ className }: SidebarProps) {
           >
             <Link href="/dashboard/mindmap">
               <MindmapIcon className="mr-2 h-4 w-4" />
-              Speech Mindmap
+              Speech to Mindmap
             </Link>
           </Button>
 

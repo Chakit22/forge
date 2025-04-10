@@ -1,4 +1,10 @@
-import React, { useEffect, useMemo } from "react";
+import React, {
+  useEffect,
+  useMemo,
+  forwardRef,
+  useImperativeHandle,
+  useRef,
+} from "react";
 import ReactFlow, {
   ReactFlowProvider,
   MiniMap,
@@ -11,6 +17,7 @@ import ReactFlow, {
   ConnectionLineType,
   MarkerType,
   BackgroundVariant,
+  ReactFlowInstance,
 } from "reactflow";
 import dagre from "dagre";
 import "reactflow/dist/style.css";
@@ -55,27 +62,27 @@ const convertToFlowElements = (
     switch (level) {
       case 0: // Root node
         return {
-          backgroundColor: "#FED7D7", // Light red
-          borderColor: "#FC8181", // Red border
-          textColor: "#9B2C2C", // Dark red text
+          backgroundColor: "#661818", // Darker red
+          borderColor: "#c53030", // Darker red border
+          textColor: "#ffffff", // White text
         };
       case 1: // First level children
         return {
-          backgroundColor: "#FEEBC8", // Light yellow
-          borderColor: "#F6AD55", // Yellow border
-          textColor: "#9C4221", // Dark orange text
+          backgroundColor: "#744210", // Darker yellow/brown
+          borderColor: "#d69e2e", // Darker yellow border
+          textColor: "#ffffff", // White text
         };
       case 2: // Second level
         return {
-          backgroundColor: "#C6F6D5", // Light green
-          borderColor: "#68D391", // Green border
-          textColor: "#276749", // Dark green text
+          backgroundColor: "#22543d", // Darker green
+          borderColor: "#48bb78", // Darker green border
+          textColor: "#ffffff", // White text
         };
       default: // Deeper levels
         return {
-          backgroundColor: "#BEE3F8", // Light blue
-          borderColor: "#63B3ED", // Blue border
-          textColor: "#2C5282", // Dark blue text
+          backgroundColor: "#2a4365", // Darker blue
+          borderColor: "#4299e1", // Darker blue border
+          textColor: "#ffffff", // White text
         };
     }
   };
@@ -99,7 +106,7 @@ const convertToFlowElements = (
       backgroundColor: colors.backgroundColor,
       boxShadow: "0 2px 4px rgba(0, 0, 0, 0.1)",
       color: colors.textColor,
-      fontSize: level === 0 ? 16 : 14,
+      fontSize: level === 0 ? 18 : 16, // Increase font size for better readability
       fontWeight: level === 0 ? "bold" : "normal",
     },
     type: "default",
@@ -233,7 +240,7 @@ const getLayoutedElements = (
   return { nodes: layoutedNodes, edges };
 };
 
-// Custom node component for more control over appearance
+// Define the custom node component outside the main component
 const CustomNode = ({
   data,
 }: {
@@ -248,14 +255,16 @@ const CustomNode = ({
         color: data.colors.textColor,
         boxShadow: "0 4px 8px rgba(0, 0, 0, 0.15)",
         transform: "translateZ(0)", // Force hardware acceleration
+        fontSize: data.level === 0 ? 18 : 16, // Increase font size for better readability
+        fontWeight: data.level === 0 ? "bold" : "normal",
       }}
     >
       <div
         className={`${
           data.level === 0
-            ? "font-bold text-base"
+            ? "font-bold text-lg"
             : data.level === 1
-            ? "font-semibold text-sm"
+            ? "font-semibold text-md"
             : "font-normal text-sm"
         }`}
       >
@@ -265,27 +274,34 @@ const CustomNode = ({
   );
 };
 
+// Define nodeTypes outside the component to avoid recreation on each render
+const nodeTypes = {
+  default: CustomNode,
+};
+
 // Legend Component to explain the colors and connection types
 const MindmapLegend = () => {
   return (
     <div className="flex flex-col mb-3">
-      <div className="text-sm font-semibold mb-2">Mindmap Legend:</div>
+      <div className="text-sm font-semibold mb-2 text-white">
+        Mindmap Legend:
+      </div>
       <div className="flex flex-wrap gap-3 items-center">
         <div className="flex items-center">
           <div className="w-4 h-4 bg-red-200 border border-red-400 rounded mr-1"></div>
-          <span className="text-xs">Root Topic</span>
+          <span className="text-xs text-white">Root Topic</span>
         </div>
         <div className="flex items-center">
           <div className="w-4 h-4 bg-yellow-200 border border-yellow-400 rounded mr-1"></div>
-          <span className="text-xs">Main Categories</span>
+          <span className="text-xs text-white">Main Categories</span>
         </div>
         <div className="flex items-center">
           <div className="w-4 h-4 bg-green-200 border border-green-400 rounded mr-1"></div>
-          <span className="text-xs">Sub-Categories</span>
+          <span className="text-xs text-white">Sub-Categories</span>
         </div>
         <div className="flex items-center">
           <div className="w-4 h-4 bg-blue-200 border border-blue-400 rounded mr-1"></div>
-          <span className="text-xs">Details</span>
+          <span className="text-xs text-white">Details</span>
         </div>
         <div className="border-l border-gray-300 h-5 mx-1"></div>
         <div className="flex items-center gap-2">
@@ -293,13 +309,13 @@ const MindmapLegend = () => {
             <span className="text-xs font-bold px-2 py-1 bg-white border border-gray-300 rounded text-gray-700 mr-1">
               ⟹ contains
             </span>
-            <span className="text-xs">Parent → Child</span>
+            <span className="text-xs text-white">Parent → Child</span>
           </div>
           <div className="flex items-center">
             <span className="text-xs font-bold px-2 py-1 bg-white border border-gray-300 rounded text-gray-700 mr-1">
               ⟹ includes
             </span>
-            <span className="text-xs">Category → Subcategory</span>
+            <span className="text-xs text-white">Category → Subcategory</span>
           </div>
         </div>
       </div>
@@ -307,114 +323,137 @@ const MindmapLegend = () => {
   );
 };
 
-// The main Mindmap component
-const Mindmap = ({ mindmapData }: { mindmapData: MindmapNode }) => {
-  // Define node types for custom rendering
-  const nodeTypes = {
-    default: CustomNode,
-  };
+// Define a ref interface for external access
+export interface MindmapRef {
+  getFlowInstance: () => ReactFlowInstance | null;
+  getContainer: () => HTMLDivElement | null;
+}
 
-  // Data processing - convert hierarchical data to ReactFlow format once
-  const { nodes: initialNodes, edges: initialEdges } = useMemo(() => {
-    if (!mindmapData || !mindmapData.title) {
-      return { nodes: [], edges: [] };
-    }
+// Update the Mindmap component to use forwardRef for external access
+const Mindmap = forwardRef<MindmapRef, { mindmapData: MindmapNode }>(
+  ({ mindmapData }, ref) => {
+    // Data processing - convert hierarchical data to ReactFlow format once
+    const { nodes: initialNodes, edges: initialEdges } = useMemo(() => {
+      if (!mindmapData || !mindmapData.title) {
+        return { nodes: [], edges: [] };
+      }
 
-    // Convert hierarchical data to nodes and edges
-    const elements = convertToFlowElements(mindmapData);
+      // Convert hierarchical data to nodes and edges
+      const elements = convertToFlowElements(mindmapData);
 
-    // Apply layout immediately
-    return getLayoutedElements(elements.nodes, elements.edges);
-  }, [mindmapData]);
+      // Apply layout immediately
+      return getLayoutedElements(elements.nodes, elements.edges);
+    }, [mindmapData]);
 
-  // Set up the ReactFlow state
-  const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
-  const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
+    // Set up the ReactFlow state
+    const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
+    const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
 
-  // Update nodes and edges when initial values change
-  useEffect(() => {
-    setNodes(initialNodes);
-    setEdges(initialEdges);
-  }, [initialNodes, initialEdges, setNodes, setEdges]);
+    // Refs for export functionality
+    const reactFlowInstance = useRef<ReactFlowInstance | null>(null);
+    const reactFlowContainer = useRef<HTMLDivElement | null>(null);
 
-  return (
-    <div className="flex flex-col">
-      <MindmapLegend />
-      <ReactFlowProvider>
-        <div
-          style={{
-            width: "100%",
-            height: "500px",
-            border: "1px solid #ddd",
-            borderRadius: "8px",
-            backgroundColor: "#e9ecef",
-            backgroundImage: "radial-gradient(#d6d6d6 1px, transparent 1px)",
-            backgroundSize: "20px 20px",
-          }}
-        >
-          <ReactFlow
-            nodes={nodes}
-            edges={edges}
-            onNodesChange={onNodesChange}
-            onEdgesChange={onEdgesChange}
-            nodeTypes={nodeTypes}
-            fitView
-            fitViewOptions={{ padding: 0.3 }}
-            minZoom={0.4}
-            maxZoom={1.5}
-            nodesDraggable={true}
-            panOnScroll={true}
-            panOnDrag={true}
-            zoomOnScroll={true}
-            nodesConnectable={false}
-            elementsSelectable={true}
-            connectionLineType={ConnectionLineType.Straight}
-            defaultEdgeOptions={{
-              type: "straight",
-              animated: false,
-              style: { strokeWidth: 3 },
-              labelBgPadding: [8, 4],
-              labelBgBorderRadius: 4,
-              labelShowBg: true,
-              labelBgStyle: {
-                fill: "#ffffff",
-                fillOpacity: 0.95,
-                stroke: "#666",
-                strokeWidth: 1.5,
-              },
-              labelStyle: {
-                fill: "#333",
-                fontWeight: 700,
-                fontSize: 14,
-              },
-              markerEnd: {
-                type: MarkerType.ArrowClosed,
-                width: 20,
-                height: 20,
-              },
+    // Expose methods to parent components
+    useImperativeHandle(ref, () => ({
+      getFlowInstance: () => reactFlowInstance.current,
+      getContainer: () => reactFlowContainer.current,
+    }));
+
+    // Update nodes and edges when initial values change
+    useEffect(() => {
+      setNodes(initialNodes);
+      setEdges(initialEdges);
+    }, [initialNodes, initialEdges, setNodes, setEdges]);
+
+    return (
+      <div className="flex flex-col">
+        <MindmapLegend />
+        <ReactFlowProvider>
+          <div
+            ref={reactFlowContainer}
+            style={{
+              width: "100%",
+              height: "500px",
+              border: "1px solid #333", // Darker border
+              borderRadius: "8px",
+              backgroundColor: "#1a202c", // Dark background
+              backgroundImage: "radial-gradient(#2d3748 1px, transparent 1px)", // Darker dots
+              backgroundSize: "20px 20px",
             }}
-            edgesUpdatable={true}
-            edgesFocusable={true}
           >
-            <Controls />
-            <MiniMap
-              nodeStrokeWidth={3}
-              zoomable
-              pannable
-              nodeColor={(node) => {
-                return node.data.colors?.backgroundColor || "#ffffff";
+            <ReactFlow
+              nodes={nodes}
+              edges={edges}
+              onNodesChange={onNodesChange}
+              onEdgesChange={onEdgesChange}
+              nodeTypes={nodeTypes}
+              onInit={(instance) => {
+                reactFlowInstance.current = instance;
               }}
-            />
-            <Background
-              color="#f0f0f0"
-              gap={16}
-              variant={BackgroundVariant.Dots}
-            />
-          </ReactFlow>
-        </div>
-      </ReactFlowProvider>
-    </div>
-  );
-};
+              fitView
+              fitViewOptions={{ padding: 0.3, maxZoom: 1 }}
+              minZoom={0.2} // Lower minimum zoom to see more of the graph
+              maxZoom={2} // Higher maximum zoom to see details
+              nodesDraggable={true}
+              panOnScroll={true}
+              panOnDrag={true}
+              zoomOnScroll={true}
+              zoomOnPinch={true} // Enable pinch zoom for touch devices
+              zoomOnDoubleClick={true} // Enable double-click to zoom
+              nodesConnectable={false}
+              elementsSelectable={true}
+              connectionLineType={ConnectionLineType.Straight}
+              defaultEdgeOptions={{
+                type: "straight",
+                animated: false,
+                style: { strokeWidth: 3, stroke: "#718096" }, // Add stroke color
+                labelBgPadding: [8, 4],
+                labelBgBorderRadius: 4,
+                labelShowBg: true,
+                labelBgStyle: {
+                  fill: "#2d3748", // Darker background
+                  fillOpacity: 0.95,
+                  stroke: "#4a5568", // Darker stroke
+                  strokeWidth: 1.5,
+                },
+                labelStyle: {
+                  fill: "#e2e8f0", // Light gray text
+                  fontWeight: 700,
+                  fontSize: 14,
+                },
+                markerEnd: {
+                  type: MarkerType.ArrowClosed,
+                  color: "#718096", // Medium gray
+                  width: 20,
+                  height: 20,
+                },
+              }}
+              edgesUpdatable={true}
+              edgesFocusable={true}
+            >
+              <Controls showInteractive={true} />
+              <MiniMap
+                nodeStrokeWidth={3}
+                zoomable
+                pannable
+                nodeColor={(node) => {
+                  return node.data.colors?.backgroundColor || "#2d3748"; // Darker fallback
+                }}
+                maskColor="rgba(0, 0, 0, 0.5)" // Semi-transparent black
+              />
+              <Background
+                color="#4a5568" // Darker gray dots
+                gap={16}
+                variant={BackgroundVariant.Dots}
+              />
+            </ReactFlow>
+          </div>
+        </ReactFlowProvider>
+      </div>
+    );
+  }
+);
+
+Mindmap.displayName = "Mindmap";
 
 export default Mindmap;

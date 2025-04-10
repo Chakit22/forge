@@ -76,7 +76,18 @@ export default function DashboardLayout({
   if (isLoading) {
     return (
       <div className="flex h-screen items-center justify-center bg-black">
-        <p className="text-white text-lg">Loading...</p>
+        <div className="flex flex-col items-center space-y-6">
+          <div className="relative h-16 w-16">
+            <div className="absolute inset-0 rounded-full border-4 border-t-purple-500 border-r-transparent border-b-purple-300 border-l-transparent animate-spin"></div>
+            <div className="absolute inset-2 rounded-full border-4 border-t-blue-500 border-r-transparent border-b-blue-300 border-l-transparent animate-spin-slow"></div>
+          </div>
+          <p className="text-xl font-medium text-white">
+            Loading your dashboard...
+          </p>
+          <div className="w-48 h-1.5 bg-gray-800 rounded-full overflow-hidden">
+            <div className="h-full bg-gradient-to-r from-blue-500 to-purple-500 animate-pulse"></div>
+          </div>
+        </div>
       </div>
     );
   }

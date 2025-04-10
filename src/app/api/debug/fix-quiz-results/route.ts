@@ -73,7 +73,13 @@ export async function GET() {
                          result.weaknessAreas ? [result.weaknessAreas] : [],
           
           // Handle responses array - ensure it's in the correct format
-          responses: Array.isArray(result.responses) ? result.responses.map(resp => ({
+          responses: Array.isArray(result.responses) ? result.responses.map((resp: {
+            questionId: string;
+            question: string;
+            selectedOptionIndex: number;
+            correctOptionIndex: number;
+            isCorrect: boolean;
+          }) => ({
             questionId: resp.questionId,
             question: resp.question,
             selectedOptionIndex: resp.selectedOptionIndex,

@@ -48,7 +48,7 @@ export async function GET() {
       console.log(`Found ${directResults.length} quiz results via direct query`);
       
       // Convert the direct results
-      results = directResults.map(r => ({
+      results = directResults.map((r: { _additional?: { id?: string }, [key: string]: any }) => ({
         ...r,
         id: r._additional?.id
       }));

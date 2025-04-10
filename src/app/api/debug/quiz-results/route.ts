@@ -17,7 +17,7 @@ export async function GET() {
     console.log(`Found ${quizResults.length} quiz results in Weaviate`);
 
     // Format results with proper id field from _additional.id
-    const formattedResults = quizResults.map(result => ({
+    const formattedResults = quizResults.map((result: { _additional?: { id?: string }, [key: string]: any }) => ({
       id: result._additional?.id,
       ...result
     }));

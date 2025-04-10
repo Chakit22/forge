@@ -1,8 +1,19 @@
 "use client";
 
-import { useState, useRef } from "react";
-import Mindmap from "./Mindmap";
-import { ChevronDown, ChevronUp, FileJson, ListTree } from "lucide-react";
+import { useState, useRef, useEffect } from "react";
+import Mindmap, { MindmapRef } from "./Mindmap";
+import {
+  ChevronDown,
+  ChevronUp,
+  FileJson,
+  ListTree,
+  Loader,
+  Mic,
+  MessageSquare,
+  PenTool,
+  MinusSquare,
+  PlusSquare,
+} from "lucide-react";
 
 // Define the hierarchical node type
 type MindmapNode = {
@@ -22,12 +33,12 @@ const renderHierarchicalText = (node: MindmapNode, level = 0) => {
       <div
         className={`${
           level === 0
-            ? "font-bold text-red-700"
+            ? "font-bold text-red-400"
             : level === 1
-            ? "font-semibold text-yellow-700"
+            ? "font-semibold text-yellow-400"
             : level === 2
-            ? "text-green-700"
-            : "text-blue-700"
+            ? "text-green-400"
+            : "text-blue-400"
         }`}
       >
         {indent}
@@ -45,6 +56,23 @@ const renderHierarchicalText = (node: MindmapNode, level = 0) => {
   );
 };
 
+// Simple function to create a plain-text representation of the mindmap
+const plainTextMindmap = (node: MindmapNode, level = 0): string => {
+  const indent = "  ".repeat(level);
+  const bulletSymbol =
+    level === 0 ? "● " : level === 1 ? "○ " : level === 2 ? "■ " : "□ ";
+
+  let result = `${indent}${bulletSymbol}${node.title}\n`;
+
+  if (node.children && node.children.length > 0) {
+    node.children.forEach((child) => {
+      result += plainTextMindmap(child, level + 1);
+    });
+  }
+
+  return result;
+};
+
 export default function SpeechToMindmap() {
   const [isRecording, setIsRecording] = useState(false);
   const [transcript, setTranscript] = useState("");
@@ -52,8 +80,30 @@ export default function SpeechToMindmap() {
     title: "Main Topic",
     children: [],
   });
-  const [showJson, setShowJson] = useState(true);
-  const [showHierarchy, setShowHierarchy] = useState(true);
+
+  // Processing states
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [processingStage, setProcessingStage] = useState("");
+  const [transcriptProcessing, setTranscriptProcessing] = useState(false);
+  const [notesProcessing, setNotesProcessing] = useState(false);
+  const [mindmapProcessing, setMindmapProcessing] = useState(false);
+
+  // Refs
+  const mindmapRef = useRef<MindmapRef>(null);
+
+  // Collapsible sections state
+  const [sectionsOpen, setSectionsOpen] = useState({
+    audioInput: true,
+    notes: true,
+    mindmap: true,
+  });
+
+  const toggleSection = (section: keyof typeof sectionsOpen) => {
+    setSectionsOpen({
+      ...sectionsOpen,
+      [section]: !sectionsOpen[section],
+    });
+  };
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
@@ -82,7 +132,7 @@ export default function SpeechToMindmap() {
       mediaRecorder.start();
       setIsRecording(true);
 
-      // Process in chunks every 5 seconds
+      // Process in chunks every 2 seconds
       const interval = setInterval(() => {
         if (mediaRecorderRef.current?.state === "recording") {
           mediaRecorderRef.current.stop();
@@ -109,6 +159,9 @@ export default function SpeechToMindmap() {
       const formData = new FormData();
       formData.append("file", audioBlob, "audio.webm");
 
+      setTranscriptProcessing(true);
+      setProcessingStage("Converting speech to text...");
+
       // Send the audio to OpenAI Whisper API
       const response = await fetch("/api/transcribe", {
         method: "POST",
@@ -131,10 +184,15 @@ export default function SpeechToMindmap() {
         newTranscript,
       ].slice(-3);
 
-      // Process transcript for mindmap
-      await updateMindmap(newTranscript);
+      setProcessingStage("");
+      setTranscriptProcessing(false);
+
+      // We no longer automatically process the transcript here
+      // The user will click the Process Text button to process it
     } catch (error) {
       console.error("Error processing audio:", error);
+      setProcessingStage("");
+      setTranscriptProcessing(false);
     }
   };
 
@@ -142,6 +200,10 @@ export default function SpeechToMindmap() {
     try {
       // Don't process empty text
       if (!textToProcess.trim()) return;
+
+      setIsProcessing(true);
+      setNotesProcessing(true);
+      setProcessingStage("Generating hierarchical structure...");
 
       // Send transcript to OpenAI for hierarchical structure
       const response = await fetch("/api/summarize", {
@@ -161,13 +223,33 @@ export default function SpeechToMindmap() {
 
       const data = await response.json();
 
+      setNotesProcessing(false);
+      setMindmapProcessing(true);
+      setProcessingStage("Updating mindmap visualization...");
+
       // Only update if we have valid mindmap data
       if (data.mindmapData && data.mindmapData.title) {
         // For simplicity in this example, we're replacing the entire structure
         setMindmapData(data.mindmapData);
       }
+
+      // Auto-open sections when data is available
+      if (data.mindmapData) {
+        setSectionsOpen({
+          ...sectionsOpen,
+          notes: true,
+          mindmap: true,
+        });
+      }
+
+      setMindmapProcessing(false);
     } catch (error) {
       console.error("Error updating mindmap:", error);
+      setNotesProcessing(false);
+      setMindmapProcessing(false);
+    } finally {
+      setIsProcessing(false);
+      setProcessingStage("");
     }
   };
 
@@ -179,143 +261,188 @@ export default function SpeechToMindmap() {
     }
   };
 
+  // Create a vertical layout with collapsible sections
   return (
     <div className="flex flex-col space-y-6 max-w-6xl mx-auto">
       <div className="mb-2">
-        <h1 className="text-2xl font-bold text-gray-800">Speech to Mindmap</h1>
-        <p className="text-sm text-gray-600">
+        <h1 className="text-2xl font-bold text-white">Speech to Mindmap</h1>
+        <p className="text-sm text-gray-300">
           Convert your spoken ideas into a visual mindmap and explore different
           output formats
         </p>
       </div>
 
-      {/* Input Section */}
-      <div className="border rounded overflow-hidden shadow-sm">
-        <div className="bg-gray-50 p-3 flex justify-between items-center border-b">
-          <div className="flex items-center">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="h-4 w-4 mr-2 text-blue-500"
-              viewBox="0 0 20 20"
-              fill="currentColor"
-            >
-              <path
-                fillRule="evenodd"
-                d="M7 4a3 3 0 016 0v4a3 3 0 11-6 0V4zm4 10.93A7.001 7.001 0 0017 8a1 1 0 10-2 0A5 5 0 015 8a1 1 0 00-2 0 7.001 7.001 0 006 6.93V17H6a1 1 0 100 2h8a1 1 0 100-2h-3v-2.07z"
-                clipRule="evenodd"
+      <div className="flex flex-col space-y-4">
+        {/* Audio Input Section - Collapsible */}
+        <div className="border border-gray-700 rounded overflow-hidden shadow-sm">
+          <div
+            className="bg-gray-800 p-3 flex justify-between items-center border-b border-gray-700 cursor-pointer"
+            onClick={() => toggleSection("audioInput")}
+          >
+            <div className="flex items-center">
+              <Mic className="h-4 w-4 mr-2 text-blue-400" />
+              <h2 className="text-sm font-semibold text-white">Speech Input</h2>
+              {transcriptProcessing && (
+                <span className="ml-2 text-xs bg-blue-500 text-white px-2 py-0.5 rounded-full flex items-center">
+                  <Loader className="w-3 h-3 animate-spin mr-1" />
+                  Processing...
+                </span>
+              )}
+            </div>
+            <div className="flex items-center">
+              <div className="flex mr-4">
+                {!isRecording ? (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      startRecording();
+                    }}
+                    className="bg-green-500 hover:bg-green-600 text-white px-3 py-1.5 rounded text-xs mr-2"
+                    disabled={isProcessing}
+                  >
+                    Start Recording
+                  </button>
+                ) : (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      stopRecording();
+                    }}
+                    className="bg-red-500 hover:bg-red-600 text-white px-3 py-1.5 rounded text-xs mr-2"
+                  >
+                    Stop Recording
+                  </button>
+                )}
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    processTranscript();
+                  }}
+                  disabled={isProcessing || !transcript.trim()}
+                  className={`flex items-center ${
+                    isProcessing || !transcript.trim()
+                      ? "bg-blue-400 cursor-not-allowed"
+                      : "bg-blue-500 hover:bg-blue-600"
+                  } text-white px-3 py-1.5 rounded text-xs`}
+                >
+                  {isProcessing ? (
+                    <>
+                      <Loader className="w-3 h-3 animate-spin mr-1" />
+                      Processing...
+                    </>
+                  ) : (
+                    "Process Text"
+                  )}
+                </button>
+              </div>
+              {sectionsOpen.audioInput ? (
+                <MinusSquare className="h-5 w-5 text-gray-400" />
+              ) : (
+                <PlusSquare className="h-5 w-5 text-gray-400" />
+              )}
+            </div>
+          </div>
+
+          {sectionsOpen.audioInput && (
+            <div className="bg-gray-900 p-4">
+              {/* Transcript input */}
+              <textarea
+                className="bg-gray-800 text-white p-4 w-full overflow-y-auto h-[150px] rounded border border-gray-700"
+                value={transcript}
+                onChange={(e) => setTranscript(e.target.value)}
+                placeholder="Your transcript will appear here or type directly to test..."
+                disabled={transcriptProcessing}
               />
-            </svg>
-            <h2 className="text-sm font-semibold">Speech Input</h2>
-          </div>
-          <div>
-            {!isRecording ? (
-              <button
-                onClick={startRecording}
-                className="bg-green-500 hover:bg-green-600 text-white px-3 py-1.5 rounded text-xs mr-2"
-              >
-                Start Recording
-              </button>
-            ) : (
-              <button
-                onClick={stopRecording}
-                className="bg-red-500 hover:bg-red-600 text-white px-3 py-1.5 rounded text-xs mr-2"
-              >
-                Stop Recording
-              </button>
-            )}
-            <button
-              onClick={processTranscript}
-              className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1.5 rounded text-xs"
-            >
-              Process Text
-            </button>
-          </div>
-        </div>
-        {/* Make the transcript editable with a textarea */}
-        <textarea
-          className="bg-gray-100 p-4 w-full overflow-y-auto h-[150px]"
-          value={transcript}
-          onChange={(e) => setTranscript(e.target.value)}
-          placeholder="Your transcript will appear here or type directly to test..."
-        />
-      </div>
-
-      {/* Visualization Section */}
-      <div className="border rounded overflow-hidden shadow-sm">
-        <div className="bg-gray-50 p-3 flex justify-between items-center border-b">
-          <div className="flex items-center">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="h-4 w-4 mr-2 text-purple-500"
-              viewBox="0 0 20 20"
-              fill="currentColor"
-            >
-              <path d="M7 3a1 1 0 000 2h6a1 1 0 100-2H7zM4 7a1 1 0 011-1h10a1 1 0 110 2H5a1 1 0 01-1-1zM2 11a2 2 0 012-2h12a2 2 0 012 2v4a2 2 0 01-2 2H4a2 2 0 01-2-2v-4z" />
-            </svg>
-            <h2 className="text-sm font-semibold">Mindmap Visualization</h2>
-          </div>
-        </div>
-
-        <div className="p-4 bg-white">
-          {/* Use the Mindmap component here */}
-          {mindmapData.title ? (
-            <Mindmap mindmapData={mindmapData} />
-          ) : (
-            <div className="bg-gray-100 p-4 rounded h-[200px] flex items-center justify-center">
-              <p className="text-gray-500">
-                Mindmap will appear here as you speak or process text...
-              </p>
             </div>
           )}
         </div>
-      </div>
 
-      {/* Output Formats Section */}
-      <div className="border rounded overflow-hidden shadow-sm">
-        <div className="bg-gray-50 p-3 border-b">
-          <div className="flex items-center">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="h-4 w-4 mr-2 text-green-500"
-              viewBox="0 0 20 20"
-              fill="currentColor"
-            >
-              <path
-                fillRule="evenodd"
-                d="M3 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z"
-                clipRule="evenodd"
-              />
-            </svg>
-            <h2 className="text-sm font-semibold">Output Formats</h2>
+        {/* Summarized Notes Section - Collapsible */}
+        <div className="border border-gray-700 rounded overflow-hidden shadow-sm">
+          <div
+            className="bg-gray-800 p-3 flex justify-between items-center border-b border-gray-700 cursor-pointer"
+            onClick={() => toggleSection("notes")}
+          >
+            <div className="flex items-center">
+              <MessageSquare className="h-4 w-4 mr-2 text-green-400" />
+              <h2 className="text-sm font-semibold text-white">
+                Summarized Notes
+              </h2>
+              {notesProcessing && (
+                <span className="ml-2 text-xs bg-green-500 text-white px-2 py-0.5 rounded-full flex items-center">
+                  <Loader className="w-3 h-3 animate-spin mr-1" />
+                  Generating notes...
+                </span>
+              )}
+            </div>
+            <div>
+              {sectionsOpen.notes ? (
+                <MinusSquare className="h-5 w-5 text-gray-400" />
+              ) : (
+                <PlusSquare className="h-5 w-5 text-gray-400" />
+              )}
+            </div>
           </div>
+
+          {sectionsOpen.notes && (
+            <div className="p-4 bg-gray-900">
+              {notesProcessing ? (
+                <div className="bg-gray-800 p-4 rounded text-white font-mono min-h-[200px] flex items-center justify-center flex-col">
+                  <Loader className="w-8 h-8 animate-spin text-green-500 mb-3" />
+                  <p className="text-gray-300 text-sm text-center">
+                    {processingStage || "Generating hierarchical structure..."}
+                  </p>
+                </div>
+              ) : (
+                <div className="bg-gray-800 p-4 rounded text-white font-mono min-h-[200px]">
+                  {renderHierarchicalText(mindmapData)}
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
-        <div className="space-y-4 p-4 bg-white">
-          {/* Hierarchical text representation with collapsible section */}
-          <div className="border rounded overflow-hidden">
-            <button
-              onClick={() => setShowHierarchy(!showHierarchy)}
-              className="w-full flex items-center justify-between p-3 bg-gray-50 hover:bg-gray-100 text-left transition-colors"
-            >
-              <div className="flex items-center">
-                <ListTree className="h-4 w-4 mr-2 text-green-500" />
-                <h3 className="text-sm font-semibold text-gray-700">
-                  Hierarchical Text View
-                </h3>
-              </div>
-              {showHierarchy ? (
-                <ChevronUp className="h-4 w-4" />
-              ) : (
-                <ChevronDown className="h-4 w-4" />
+        {/* Mindmap Visualization - Collapsible */}
+        <div className="border border-gray-700 rounded overflow-hidden shadow-sm">
+          <div
+            className="bg-gray-800 p-3 flex justify-between items-center border-b border-gray-700 cursor-pointer"
+            onClick={() => toggleSection("mindmap")}
+          >
+            <div className="flex items-center">
+              <PenTool className="h-4 w-4 mr-2 text-purple-400" />
+              <h2 className="text-sm font-semibold text-white">
+                Mindmap Visualization
+              </h2>
+              {mindmapProcessing && (
+                <span className="ml-2 text-xs bg-purple-500 text-white px-2 py-0.5 rounded-full flex items-center">
+                  <Loader className="w-3 h-3 animate-spin mr-1" />
+                  Updating mindmap...
+                </span>
               )}
-            </button>
-
-            {showHierarchy && (
-              <div className="text-xs bg-gray-100 p-3 overflow-auto h-[250px] font-mono border-t">
-                {renderHierarchicalText(mindmapData)}
-              </div>
-            )}
+            </div>
+            <div className="flex items-center">
+              {sectionsOpen.mindmap ? (
+                <MinusSquare className="h-5 w-5 text-gray-400" />
+              ) : (
+                <PlusSquare className="h-5 w-5 text-gray-400" />
+              )}
+            </div>
           </div>
+
+          {sectionsOpen.mindmap && (
+            <div className="p-4 bg-gray-900 min-h-[500px]">
+              {mindmapProcessing ? (
+                <div className="bg-gray-800 p-4 rounded text-white font-mono min-h-[500px] flex items-center justify-center flex-col">
+                  <Loader className="w-8 h-8 animate-spin text-purple-500 mb-3" />
+                  <p className="text-gray-300 text-sm text-center">
+                    {processingStage || "Updating mindmap visualization..."}
+                  </p>
+                </div>
+              ) : (
+                <Mindmap ref={mindmapRef} mindmapData={mindmapData} />
+              )}
+            </div>
+          )}
         </div>
       </div>
     </div>

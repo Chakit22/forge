@@ -17,7 +17,7 @@ export async function POST(request: Request) {
     }
     
     // Get request body if provided
-    let requestData = {};
+    let requestData: { conversationId?: string } = {};
     try {
       requestData = await request.json();
       console.log('Request data provided:', requestData);

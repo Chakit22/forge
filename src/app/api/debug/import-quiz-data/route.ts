@@ -122,17 +122,22 @@ export async function POST(request: Request) {
     
     console.log(`Imported quiz data with ID: ${importedId}`);
     
+    // Extract the ID from the returned object, or use the object directly if it's already a string
+    const id = typeof importedId === 'object' && importedId !== null 
+      ? importedId.id || String(importedId)
+      : importedId;
+    
     // Verify the import by retrieving the object
     const importedObject = await client.data
       .getterById()
-      .withId(importedId)
+      .withId(id)
       .withClassName('QuizResult')
       .do();
     
     return NextResponse.json({ 
       success: true,
       message: 'Sample quiz data imported successfully',
-      importedId,
+      importedId: id,
       importedObject
     });
   } catch (error) {

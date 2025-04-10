@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { getConversationById, deleteConversation } from "@/app/api/actions";
 import { Button } from "@/components/ui/button";
@@ -1025,6 +1025,24 @@ export default function ConversationPage({
     }
   };
 
+  // Handle back button click - use the same end session dialog
+  const handleBackButton = () => {
+    setIsEndSessionDialogOpen(true);
+  };
+
+  // Get timer color based on time left
+  const getTimerColor = (seconds: number) => {
+    if (seconds <= 300) {
+      // 5 minutes or less
+      return "text-red-500";
+    } else if (seconds <= 600) {
+      // 10 minutes or less
+      return "text-amber-500";
+    } else {
+      return "text-white";
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-full">
@@ -1060,7 +1078,7 @@ export default function ConversationPage({
           <Button
             variant="ghost"
             className="text-white p-0 mr-2"
-            onClick={() => router.replace("/dashboard")}
+            onClick={handleBackButton}
           >
             <ArrowLeftIcon className="h-6 w-6" />
           </Button>
@@ -1075,7 +1093,11 @@ export default function ConversationPage({
         </div>
 
         <div className="flex items-center gap-3">
-          <div className="text-xl font-medium text-white bg-slate-900 px-3 py-1 rounded-md">
+          <div
+            className={`text-xl font-medium bg-slate-900 px-3 py-1 rounded-md ${getTimerColor(
+              timeLeft
+            )}`}
+          >
             {formatTime(timeLeft)}
           </div>
           <Button

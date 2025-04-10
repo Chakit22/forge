@@ -1,0 +1,95 @@
+.mindmap-wrapper {
+  width: 100%;
+  height: 100%;
+  background-color: #1a202c;
+}
+
+.mindmap-node-container {
+  display: flex;
+  padding: 8px;
+  align-items: center;
+  border-radius: 8px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.25);
+  width: max-content;
+}
+
+.mindmap-drag-handle {
+  display: flex;
+  align-items: center;
+  margin-right: 8px;
+  cursor: grab;
+}
+
+.mindmap-node-input {
+  background: transparent;
+  border: none;
+  color: #ffffff;
+  font-size: 14px;
+  min-width: 50px;
+  outline: none;
+  font-weight: 500;
+}
+
+.controls-dark {
+  background-color: #2d3748 !important;
+  border-color: #4a5568 !important;
+  border-radius: 6px !important;
+}
+
+.controls-dark button {
+  background-color: #2d3748 !important;
+  color: #cbd5e0 !important;
+  border-bottom: 1px solid #4a5568 !important;
+}
+
+.controls-dark button:hover {
+  background-color: #4a5568 !important;
+}
+
+.minimap-dark {
+  background-color: #2d3748 !important;
+  border-color: #4a5568 !important;
+}
+
+.header {
+  font-weight: 600;
+  color: #cbd5e0;
+  padding: 8px 12px;
+  background-color: rgba(45, 55, 72, 0.8);
+  border-radius: 6px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.export-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 500;
+}
+
+.export-button svg {
+  margin-right: 4px;
+}
+
+/* React Flow Handle Styling */
+.react-flow__handle {
+  width: 8px;
+  height: 8px;
+  background-color: #f6ad55;
+  border: 2px solid #ffffff;
+}
+
+.react-flow__handle:hover {
+  background-color: #ed8936;
+}
+
+/* Edge connection line style */
+.react-flow__connection-path {
+  stroke: #f6ad55;
+  stroke-width: 3;
+}
+
+/* Background styling */
+.react-flow__background {
+  background-color: #1a202c;
+}
