@@ -91,24 +91,24 @@ export async function GET() {
       
       // First try standard camelCase format
       const id = result.id || '';
-      const quizId = result.quizId || result.quiz_id || '';
-      const userId = result.userId || result.user_id || '';
-      const conversationId = result.conversationId || result.conversation_id || '';
-      const score = result.score || 0;
-      const totalQuestions = result.totalQuestions || result.total_questions || 0;
+      const quizId = result.quizId || result.quizId || '';
+      let userId = result.userId || result.userId || '';
+      const conversationId = result.conversationId || result.conversationId || '';
+      let score = result.score || 0;
+      let totalQuestions = result.totalQuestions || result.totalQuestions || 0;
       const feedback = result.feedback || '';
-      const learningOption = result.learningOption || result.learning_option || 'unknown';
+      const learningOption = result.learningOption || result.learningOption || 'unknown';
       const strengthAreas = Array.isArray(result.strengthAreas) 
         ? result.strengthAreas 
-        : Array.isArray(result.strength_areas)
-          ? result.strength_areas 
+        : Array.isArray(result.strengthAreas)
+          ? result.strengthAreas 
           : [];
       const weaknessAreas = Array.isArray(result.weaknessAreas) 
         ? result.weaknessAreas 
-        : Array.isArray(result.weakness_areas)
-          ? result.weakness_areas 
+        : Array.isArray(result.weaknessAreas)
+          ? result.weaknessAreas 
           : [];
-      let timestamp = result.timestamp || result.created_at || new Date().toISOString();
+      let timestamp = result.timestamp || result.timestamp || new Date().toISOString();
       
       // Ensure proper types
       if (typeof score !== 'number') {
