@@ -26,6 +26,7 @@ const getOpenAIClient = () => {
 export interface QuizResult {
   quizId: string;
   userId: number;
+  conversationId: string;
   score: number;
   totalQuestions: number;
   responses: {
@@ -50,6 +51,7 @@ export interface QuizResultRequest {
   questions: QuizQuestion[];
   selectedOptions: number[];
   learningOption: string;
+  conversationId: string;
 }
 
 export async function POST(request: Request) {
@@ -62,10 +64,30 @@ export async function POST(request: Request) {
       totalQuestions, 
       questions, 
       selectedOptions,
-      learningOption
+      learningOption,
+      conversationId
     } = requestData;
     
+    console.log('Received quiz result request:', {
+      quizTitle,
+      userId,
+      score,
+      totalQuestions,
+      questionsCount: questions?.length || 0,
+      selectedOptionsCount: selectedOptions?.length || 0,
+      learningOption,
+      conversationId: conversationId || 'MISSING'
+    });
+    
     if (!userId || !questions || !selectedOptions || selectedOptions.length !== questions.length) {
+      console.error('Invalid quiz result data:', {
+        hasUserId: !!userId,
+        hasQuestions: !!questions,
+        questionsLength: questions?.length || 0,
+        hasSelectedOptions: !!selectedOptions,
+        selectedOptionsLength: selectedOptions?.length || 0
+      });
+      
       return NextResponse.json(
         { error: 'Invalid quiz result data' }, 
         { status: 400 }
@@ -91,6 +113,7 @@ export async function POST(request: Request) {
     const result = await saveQuizResult({
       quizId: generateQuizId(quizTitle),
       userId,
+      conversationId,
       score,
       totalQuestions,
       responses,
@@ -242,61 +265,29 @@ async function identifyStrengthsAndWeaknesses(
 }
 
 // Save quiz result to database using Weaviate
-async function saveQuizResult(quizResult: QuizResult) {
+async function saveQuizResult(result: QuizResult) {
   try {
     console.log('Starting to save quiz result to Weaviate');
     console.log('Quiz result data to save:', JSON.stringify({
-      ...quizResult,
-      responses: quizResult.responses ? `${quizResult.responses.length} responses` : 'No responses',
-      feedback: quizResult.feedback?.substring(0, 50) + '...',
+      ...result,
+      responses: result.responses ? `${result.responses.length} responses` : 'No responses',
+      feedback: result.feedback?.substring(0, 50) + '...',
     }));
     
-    // Convert userId to string for Weaviate
+    // Format data for Weaviate
     const weaviateQuizResult = {
-      ...quizResult,
-      userId: quizResult.userId.toString(),
-      timestamp: quizResult.createdAt ? new Date(quizResult.createdAt) : new Date()
+      quizId: result.quizId,
+      userId: result.userId.toString(),
+      conversationId: result.conversationId,
+      score: result.score,
+      totalQuestions: result.totalQuestions,
+      responses: result.responses,
+      feedback: result.feedback,
+      learningOption: result.learningOption,
+      strengthAreas: result.strengthAreas,
+      weaknessAreas: result.weaknessAreas,
+      timestamp: new Date(result.createdAt)
     };
-    
-    console.log('Converted userId to string:', weaviateQuizResult.userId);
-    console.log('Set timestamp to:', weaviateQuizResult.timestamp);
-    
-    // Remove the createdAt field as it's not needed in Weaviate (using timestamp instead)
-    delete (weaviateQuizResult as any).createdAt;
-    
-    // Ensure responses array format is correct
-    try {
-      // Check if responses is array and has expected structure
-      if (!Array.isArray(weaviateQuizResult.responses)) {
-        console.error('Responses is not an array:', weaviateQuizResult.responses);
-        weaviateQuizResult.responses = [];
-      } else {
-        console.log(`Responses array has ${weaviateQuizResult.responses.length} items`);
-        
-        // Ensure each response has the required fields with correct types
-        weaviateQuizResult.responses = weaviateQuizResult.responses.map((response, index) => ({
-          questionId: Number(response.questionId),
-          question: String(response.question),
-          selectedOptionIndex: Number(response.selectedOptionIndex),
-          correctOptionIndex: Number(response.correctOptionIndex),
-          isCorrect: Boolean(response.isCorrect)
-        }));
-      }
-    } catch (responseError) {
-      console.error('Error processing responses array:', responseError);
-      weaviateQuizResult.responses = [];
-    }
-    
-    // Ensure arrays are actually arrays
-    if (!Array.isArray(weaviateQuizResult.strengthAreas)) {
-      console.log('strengthAreas is not an array, setting to empty array');
-      weaviateQuizResult.strengthAreas = [];
-    }
-    
-    if (!Array.isArray(weaviateQuizResult.weaknessAreas)) {
-      console.log('weaknessAreas is not an array, setting to empty array');
-      weaviateQuizResult.weaknessAreas = [];
-    }
     
     console.log('Data prepared for Weaviate. Calling quizResultService.create()');
     
@@ -310,12 +301,12 @@ async function saveQuizResult(quizResult: QuizResult) {
       id: quizResultId,
       ...weaviateQuizResult,
       // Convert fields back to the expected format for the response
-      user_id: quizResult.userId,
-      quiz_id: quizResult.quizId,
-      total_questions: quizResult.totalQuestions,
-      strength_areas: quizResult.strengthAreas,
-      weakness_areas: quizResult.weaknessAreas,
-      learning_option: quizResult.learningOption,
+      user_id: result.userId,
+      quiz_id: result.quizId,
+      total_questions: result.totalQuestions,
+      strength_areas: result.strengthAreas,
+      weakness_areas: result.weaknessAreas,
+      learning_option: result.learningOption,
       created_at: weaviateQuizResult.timestamp instanceof Date 
         ? weaviateQuizResult.timestamp.toISOString() 
         : weaviateQuizResult.timestamp

@@ -20,6 +20,7 @@ interface QuizModalProps {
   quiz: Quiz | null;
   isLoading: boolean;
   learningOption: string;
+  conversationId: string;
   onQuizComplete?: (
     feedback: string,
     strengths: string[],
@@ -33,6 +34,7 @@ export default function QuizModal({
   quiz,
   isLoading,
   learningOption,
+  conversationId,
   onQuizComplete,
 }: QuizModalProps) {
   const { user } = useUser();
@@ -112,6 +114,7 @@ export default function QuizModal({
         questions: quiz.questions,
         selectedOptions,
         learningOption,
+        conversationId,
       };
 
       console.log('Sending quiz results:', {
@@ -121,7 +124,8 @@ export default function QuizModal({
         totalQuestions: quizResultData.totalQuestions,
         selectedOptionsCount: quizResultData.selectedOptions.length,
         questionsCount: quizResultData.questions.length,
-        learningOption: quizResultData.learningOption
+        learningOption: quizResultData.learningOption,
+        conversationId: quizResultData.conversationId
       });
 
       const response = await fetch("/api/quiz-results", {

@@ -73,25 +73,62 @@ export function ConversationList() {
   // Format the ISO duration to a human readable format
   const formatDuration = (isoDuration: string) => {
     try {
-      // Parse PT1H30M format
-      const hourMatch = isoDuration.match(/(\d+)H/);
-      const minuteMatch = isoDuration.match(/(\d+)M/);
+      if (!isoDuration) return "30m"; // Default to 30 minutes if no duration
 
-      const hours = hourMatch ? parseInt(hourMatch[1]) : 0;
-      const minutes = minuteMatch ? parseInt(minuteMatch[1]) : 0;
+      // Check if it's an ISO format (PT1H30M)
+      if (isoDuration.startsWith("PT")) {
+        const hourMatch = isoDuration.match(/(\d+)H/);
+        const minuteMatch = isoDuration.match(/(\d+)M/);
+        const secondMatch = isoDuration.match(/(\d+)S/);
 
-      if (hours > 0 && minutes > 0) {
-        return `${hours}h ${minutes}m`;
-      } else if (hours > 0) {
-        return `${hours}h`;
-      } else if (minutes > 0) {
-        return `${minutes}m`;
-      } else {
-        return "Unknown duration";
+        const hours = hourMatch ? parseInt(hourMatch[1]) : 0;
+        const minutes = minuteMatch ? parseInt(minuteMatch[1]) : 0;
+        const seconds = secondMatch ? parseInt(secondMatch[1]) : 0;
+
+        if (hours > 0 && minutes > 0) {
+          return `${hours}h ${minutes}m`;
+        } else if (hours > 0) {
+          return `${hours}h`;
+        } else if (minutes > 0) {
+          return `${minutes}m`;
+        } else if (seconds > 0) {
+          return `${seconds}s`;
+        }
       }
+
+      // Check for HH:MM:SS format
+      const timeFormatMatch = isoDuration.match(/(\d+):(\d+):(\d+)/);
+      if (timeFormatMatch) {
+        const hours = parseInt(timeFormatMatch[1]);
+        const minutes = parseInt(timeFormatMatch[2]);
+        const seconds = parseInt(timeFormatMatch[3]);
+
+        if (hours > 0 && minutes > 0) {
+          return `${hours}h ${minutes}m`;
+        } else if (hours > 0) {
+          return `${hours}h`;
+        } else if (minutes > 0) {
+          return `${minutes}m`;
+        } else if (seconds > 0) {
+          return `${seconds}s`;
+        }
+      }
+
+      // Check for text format like "1 hour 30 minutes"
+      if (/\d+\s*hour|\d+\s*min/i.test(isoDuration)) {
+        return isoDuration; // Return directly if already in readable format
+      }
+
+      // Last resort: try to parse as just a number of minutes
+      const justMinutes = parseInt(isoDuration);
+      if (!isNaN(justMinutes)) {
+        return `${justMinutes}m`;
+      }
+
+      return "30m"; // Default to 30 minutes
     } catch (e) {
-      console.error("Error formatting duration:", e);
-      return isoDuration || "Unknown";
+      console.error("Error formatting duration:", e, "for input:", isoDuration);
+      return "30m"; // Default to 30 minutes
     }
   };
 

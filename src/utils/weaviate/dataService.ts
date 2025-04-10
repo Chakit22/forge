@@ -47,6 +47,7 @@ export type Quiz = BaseObject & {
 // QuizResult type
 export type QuizResult = BaseObject & {
   quizId: string;
+  conversationId: string;
   score: number;
   totalQuestions: number;
   responses: {
@@ -332,10 +333,37 @@ export const quizResultService = {
   delete: (id: string) => deleteObject('QuizResult', id),
   search: (query: string) => searchObjects<QuizResult>('QuizResult', query, 
     ['userId', 'quizId', 'score', 'totalQuestions', 'feedback', 'learningOption', 'strengthAreas', 'weaknessAreas', 'timestamp']),
-  getByUserId: (userId: string) => getObjectsByUserId<QuizResult>('QuizResult', userId,
-    ['userId', 'quizId', 'score', 'totalQuestions', 'feedback', 'learningOption', 'strengthAreas', 'weaknessAreas', 'timestamp', 'responses']),
+  getByUserId: async (userId: string): Promise<QuizResult[]> => {
+    const client = getWeaviateClient();
+    
+    try {
+      const result = await client.graphql
+        .get()
+        .withClassName('QuizResult')
+        .withFields('userId quizId conversationId score totalQuestions feedback learningOption strengthAreas weaknessAreas timestamp responses {questionId question selectedOptionIndex correctOptionIndex isCorrect} _additional {id}')
+        .withWhere({
+          path: ['userId'],
+          operator: 'Equal',
+          valueString: userId
+        })
+        .withLimit(100)
+        .withSort([{ path: ['timestamp'], order: 'desc' }])
+        .do();
+      
+      const quizResults = result?.data?.Get?.QuizResult || [];
+      
+      // Convert the results to add the id property from _additional.id
+      return quizResults.map(result => ({
+        ...result,
+        id: result._additional?.id
+      })) as QuizResult[];
+    } catch (error) {
+      console.error('Error fetching quiz results by user ID:', error);
+      return [];
+    }
+  },
   
-  // Get quiz results by quiz ID  
+  // Fix the getByQuizId function
   getByQuizId: async (quizId: string): Promise<QuizResult[]> => {
     const client = getWeaviateClient();
     
@@ -343,7 +371,7 @@ export const quizResultService = {
       const result = await client.graphql
         .get()
         .withClassName('QuizResult')
-        .withFields('userId quizId score totalQuestions feedback learningOption strengthAreas weaknessAreas timestamp responses')
+        .withFields('userId quizId conversationId score totalQuestions feedback learningOption strengthAreas weaknessAreas timestamp responses {questionId question selectedOptionIndex correctOptionIndex isCorrect} _additional {id}')
         .withWhere({
           path: ['quizId'],
           operator: 'Equal',
@@ -352,9 +380,45 @@ export const quizResultService = {
         .withSort([{ path: ['timestamp'], order: 'desc' }])
         .do();
       
-      return (result?.data?.Get?.QuizResult || []) as QuizResult[];
+      const quizResults = result?.data?.Get?.QuizResult || [];
+      
+      // Convert the results to add the id property from _additional.id
+      return quizResults.map(result => ({
+        ...result,
+        id: result._additional?.id
+      })) as QuizResult[];
     } catch (error) {
       console.error('Error fetching quiz results by quiz ID:', error);
+      return [];
+    }
+  },
+  
+  // Get quiz results by conversation ID
+  getByConversationId: async (conversationId: string): Promise<QuizResult[]> => {
+    const client = getWeaviateClient();
+    
+    try {
+      const result = await client.graphql
+        .get()
+        .withClassName('QuizResult')
+        .withFields('userId quizId conversationId score totalQuestions feedback learningOption strengthAreas weaknessAreas timestamp responses {questionId question selectedOptionIndex correctOptionIndex isCorrect} _additional {id}')
+        .withWhere({
+          path: ['conversationId'],
+          operator: 'Equal',
+          valueString: conversationId
+        })
+        .withSort([{ path: ['timestamp'], order: 'desc' }])
+        .do();
+      
+      const quizResults = result?.data?.Get?.QuizResult || [];
+      
+      // Convert the results to add the id property from _additional.id
+      return quizResults.map(result => ({
+        ...result,
+        id: result._additional?.id
+      })) as QuizResult[];
+    } catch (error) {
+      console.error('Error fetching quiz results by conversation ID:', error);
       return [];
     }
   }

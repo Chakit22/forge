@@ -123,6 +123,7 @@ export async function setupQuizResultClass() {
       [
         { name: 'userId', dataType: ['string'] },
         { name: 'quizId', dataType: ['string'] },
+        { name: 'conversationId', dataType: ['string'] },
         { name: 'score', dataType: ['number'] },
         { name: 'totalQuestions', dataType: ['number'] },
         { 

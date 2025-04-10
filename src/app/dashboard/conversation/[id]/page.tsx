@@ -38,15 +38,6 @@ type FileAttachment = {
   content: string; // base64 encoded content
 };
 
-// // Local interface for messages
-// interface APIMessage {
-//   id: number;
-//   conversation_id: number;
-//   role: string;
-//   content: string;
-//   timestamp: string;
-// }
-
 // Interface for UI messages (including local ones not yet saved)
 interface UIMessage {
   id?: number | string;
@@ -55,6 +46,21 @@ interface UIMessage {
   timestamp: Date;
   status?: "sending" | "sent" | "error";
   _doNotSave?: boolean; // Add flag to indicate messages that should not be saved
+}
+
+// Interface for quiz results
+interface QuizResult {
+  id: string;
+  quiz_id: string;
+  user_id: number;
+  conversation_id: string;
+  score: number;
+  total_questions: number;
+  feedback: string;
+  learning_option: string;
+  strength_areas: string[];
+  weakness_areas: string[];
+  created_at: string;
 }
 
 export default function ConversationPage({
@@ -68,6 +74,7 @@ export default function ConversationPage({
   const [messages, setMessages] = useState<UIMessage[]>([]);
   const [inputMessage, setInputMessage] = useState("");
   const [isLoading, setIsLoading] = useState(true);
+  const [isMessagesLoading, setIsMessagesLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [timeLeft, setTimeLeft] = useState(0);
   const [isEndSessionDialogOpen, setIsEndSessionDialogOpen] = useState(false);
@@ -83,11 +90,22 @@ export default function ConversationPage({
   const [quizStrengths, setQuizStrengths] = useState<string[]>([]);
   const [quizWeaknesses, setQuizWeaknesses] = useState<string[]>([]);
   const [showQuizResults, setShowQuizResults] = useState(false);
+  // Add state for quiz results list
+  const [quizResultsList, setQuizResultsList] = useState<QuizResult[]>([]);
+  const [isLoadingQuizResults, setIsLoadingQuizResults] = useState(false);
+  // Add state for quiz results dialog
+  const [isQuizResultsDialogOpen, setIsQuizResultsDialogOpen] = useState(false);
+  const [isQuizHistoryDialogOpen, setIsQuizHistoryDialogOpen] = useState(false);
+  const [selectedQuizResult, setSelectedQuizResult] = useState<QuizResult | null>(null);
 
   // Add ref to track if we've initialized messages
   const hasInitializedRef = useRef(false);
   // Add ref to track if we've loaded messages from storage
   const hasLoadedFromStorageRef = useRef(false);
+  // Add ref to track message loading retry attempts
+  const loadingAttemptsRef = useRef(0);
+  // Add ref for retry timeout
+  const messageLoadTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Maximum file size in bytes (10MB)
   const MAX_FILE_SIZE = 10 * 1024 * 1024;
@@ -191,48 +209,172 @@ export default function ConversationPage({
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
-  // Add an effect to listen for saved messages from the wrapper component
-  useEffect(() => {
-    console.log("Setting up load-messages event listener");
+  // Add a direct method to fetch messages from the API
+  const fetchMessagesFromAPI = React.useCallback(async () => {
+    if (!unwrappedParams.id || !conversation) {
+      console.log("Cannot fetch messages: missing conversation ID or conversation data");
+      return;
+    }
+    
+    console.log(`Directly fetching messages for conversation ${unwrappedParams.id} from API (attempt ${loadingAttemptsRef.current + 1})`);
+    loadingAttemptsRef.current += 1;
+    setIsMessagesLoading(true);
+    
+    try {
+      // First try loading from localStorage as it's faster
+      try {
+        const savedMessages = localStorage.getItem(`conversation_${unwrappedParams.id}_messages`);
+        if (savedMessages) {
+          const parsedMessages = JSON.parse(savedMessages) as UIMessage[];
+          if (Array.isArray(parsedMessages) && parsedMessages.length > 0) {
+            console.log(`Loaded ${parsedMessages.length} messages from localStorage`);
+            setMessages(parsedMessages);
+            hasLoadedFromStorageRef.current = true;
+            hasInitializedRef.current = true;
+            setIsMessagesLoading(false);
+            return;
+          }
+        }
+      } catch (e) {
+        console.error("Error retrieving messages from localStorage:", e);
+      }
+      
+      // If localStorage fails, try the API
+      const response = await fetch(`/api/messages/conversation/${unwrappedParams.id}`);
+      
+      if (!response.ok) {
+        throw new Error(`Error fetching messages: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      
+      if (data.success && Array.isArray(data.messages)) {
+        console.log(`Successfully loaded ${data.messages.length} messages from API`);
+        
+        // Convert API message format to UI message format if needed
+        const uiMessages: UIMessage[] = data.messages.map((msg: any) => ({
+          id: msg.id,
+          role: msg.role,
+          content: msg.content,
+          timestamp: new Date(msg.timestamp),
+          status: "sent"
+        }));
+        
+        setMessages(uiMessages);
+        hasLoadedFromStorageRef.current = true;
+        hasInitializedRef.current = true;
+        
+        // Also save to localStorage for future use
+        try {
+          localStorage.setItem(
+            `conversation_${unwrappedParams.id}_messages`,
+            JSON.stringify(uiMessages)
+          );
+        } catch (e) {
+          console.error("Error saving messages to localStorage:", e);
+        }
+      } else {
+        console.warn("No messages returned from API or invalid response format");
+        // If we've tried multiple times and still haven't gotten messages, show empty state
+        if (loadingAttemptsRef.current >= 3) {
+          setMessages([]);
+        } else {
+          // Schedule another retry if we're under the maximum attempts
+          scheduleMessageRetry();
+        }
+      }
+    } catch (error) {
+      console.error("Error fetching messages from API:", error);
+      // If we've tried multiple times and still haven't gotten messages, show empty state
+      if (loadingAttemptsRef.current >= 3) {
+        // No messages found, but we don't want to show an error
+        setMessages([]);
+      } else {
+        // Schedule another retry if we're under the maximum attempts
+        scheduleMessageRetry();
+      }
+    } finally {
+      setIsMessagesLoading(false);
+    }
+  }, [unwrappedParams.id, conversation]);
+  
+  // Helper function to schedule retry with exponential backoff
+  const scheduleMessageRetry = React.useCallback(() => {
+    // Clear any existing timeout
+    if (messageLoadTimeoutRef.current) {
+      clearTimeout(messageLoadTimeoutRef.current);
+    }
+    
+    // Calculate backoff time (1s, 3s, 9s)
+    const backoffTime = Math.pow(3, loadingAttemptsRef.current) * 1000;
+    console.log(`Scheduling message retry in ${backoffTime}ms`);
+    
+    messageLoadTimeoutRef.current = setTimeout(() => {
+      fetchMessagesFromAPI();
+    }, backoffTime);
+  }, [fetchMessagesFromAPI]);
+  
+  // Handle messages loaded from the load-messages event
+  const handleLoadMessages = React.useCallback((event: CustomEvent<UIMessage[]>) => {
+    if (
+      !event.detail ||
+      !Array.isArray(event.detail) ||
+      event.detail.length === 0
+    ) {
+      console.log(
+        "Received empty messages array from load-messages event, ignoring"
+      );
+      return;
+    }
 
-    const handleLoadMessages = (event: CustomEvent<UIMessage[]>) => {
-      if (
-        !event.detail ||
-        !Array.isArray(event.detail) ||
-        event.detail.length === 0
-      ) {
-        console.log(
-          "Received empty messages array from load-messages event, ignoring"
-        );
-        return;
+    console.log(
+      `Received load-messages event with ${event.detail.length} messages, current hasLoadedFromStorage: ${hasLoadedFromStorageRef.current}`
+    );
+
+    // Only process the event if we haven't already loaded messages
+    if (!hasLoadedFromStorageRef.current) {
+      // Mark that we've loaded messages from storage to prevent duplicate initialization
+      hasLoadedFromStorageRef.current = true;
+      hasInitializedRef.current = true;
+      
+      // Clear any pending retry timeouts
+      if (messageLoadTimeoutRef.current) {
+        clearTimeout(messageLoadTimeoutRef.current);
+        messageLoadTimeoutRef.current = null;
       }
 
       console.log(
-        `Received load-messages event with ${event.detail.length} messages, current hasLoadedFromStorage: ${hasLoadedFromStorageRef.current}`
+        `Loading ${event.detail.length} messages from storage event, flags updated`
       );
+      setIsMessagesLoading(false);
+      setMessages(event.detail);
+    } else {
+      console.log(
+        "Ignoring load-messages event as we already loaded messages"
+      );
+    }
+  }, []);
 
-      // Only process the event if we haven't already loaded messages
-      if (!hasLoadedFromStorageRef.current) {
-        // Mark that we've loaded messages from storage to prevent duplicate initialization
-        hasLoadedFromStorageRef.current = true;
-        hasInitializedRef.current = true;
-
-        console.log(
-          `Loading ${event.detail.length} messages from storage event, flags updated`
-        );
-        setMessages(event.detail);
-      } else {
-        console.log(
-          "Ignoring load-messages event as we already loaded messages"
-        );
-      }
-    };
+  // Add an effect to listen for saved messages from the wrapper component
+  useEffect(() => {
+    console.log("Setting up load-messages event listener");
+    
+    // Set messages loading state when we start trying to load
+    setIsMessagesLoading(true);
 
     // Add event listener
     window.addEventListener(
       "load-messages",
       handleLoadMessages as EventListener
     );
+    
+    // Set a timeout to check if we've loaded messages, and if not, try to load them directly
+    messageLoadTimeoutRef.current = setTimeout(() => {
+      if (!hasLoadedFromStorageRef.current && unwrappedParams.id && conversation) {
+        console.log("No messages loaded via event after timeout, trying direct fetch");
+        fetchMessagesFromAPI();
+      }
+    }, 3000); // Wait 3 seconds for the event before trying direct API call
 
     // Cleanup function
     return () => {
@@ -241,6 +383,41 @@ export default function ConversationPage({
         "load-messages",
         handleLoadMessages as EventListener
       );
+      
+      // Clear any pending timeouts
+      if (messageLoadTimeoutRef.current) {
+        clearTimeout(messageLoadTimeoutRef.current);
+        messageLoadTimeoutRef.current = null;
+      }
+    };
+  }, [unwrappedParams.id, conversation, fetchMessagesFromAPI, handleLoadMessages]);
+
+  // When conversation is loaded but messages are empty, try to fetch them
+  useEffect(() => {
+    if (
+      conversation && 
+      !hasLoadedFromStorageRef.current && 
+      !isLoading && 
+      messages.length === 0 && 
+      loadingAttemptsRef.current === 0
+    ) {
+      console.log("Conversation loaded but no messages, trying direct fetch");
+      fetchMessagesFromAPI();
+    }
+  }, [conversation, isLoading, messages.length, fetchMessagesFromAPI]);
+
+  // Update cleanup function to clear timeouts
+  useEffect(() => {
+    return () => {
+      console.log("Cleaning up refs and flags on unmount");
+      hasInitializedRef.current = false;
+      hasLoadedFromStorageRef.current = false;
+      loadingAttemptsRef.current = 0;
+      
+      if (messageLoadTimeoutRef.current) {
+        clearTimeout(messageLoadTimeoutRef.current);
+        messageLoadTimeoutRef.current = null;
+      }
     };
   }, []);
 
@@ -566,37 +743,6 @@ export default function ConversationPage({
     }
   };
 
-  // // Format duration string to a human readable format
-  // const formatDuration = (durationStr: string) => {
-  //   try {
-  //     // If it's already in a readable format like "1 hour 30 minutes", return it directly
-  //     if (/\d+\s*hour|\d+\s*min/i.test(durationStr)) {
-  //       return durationStr;
-  //     }
-
-  //     // For ISO format or PostgreSQL interval, convert to seconds first then format
-  //     const seconds = parseDurationToSeconds(durationStr);
-
-  //     const hours = Math.floor(seconds / 3600);
-  //     const minutes = Math.floor((seconds % 3600) / 60);
-
-  //     if (hours > 0 && minutes > 0) {
-  //       return `${hours} hour${hours > 1 ? "s" : ""} ${minutes} minute${
-  //         minutes > 1 ? "s" : ""
-  //       }`;
-  //     } else if (hours > 0) {
-  //       return `${hours} hour${hours > 1 ? "s" : ""}`;
-  //     } else if (minutes > 0) {
-  //       return `${minutes} minute${minutes > 1 ? "s" : ""}`;
-  //     } else {
-  //       return "Less than a minute";
-  //     }
-  //   } catch (e) {
-  //     console.error("Error formatting duration:", e);
-  //     return durationStr || "Unknown duration";
-  //   }
-  // };
-
   const getLearningOptionDisplay = (option: string) => {
     const options: Record<string, string> = {
       memorizing: "Memorization",
@@ -730,7 +876,7 @@ export default function ConversationPage({
     setQuizFeedback(feedback);
     setQuizStrengths(strengths);
     setQuizWeaknesses(weaknesses);
-    setShowQuizResults(true);
+    setIsQuizResultsDialogOpen(true);
 
     // Optionally display a toast to notify the user
     if (feedback) {
@@ -738,30 +884,98 @@ export default function ConversationPage({
     }
   };
 
-  // Make sure we save messages when component unmounts
-  useEffect(() => {
-    return () => {
-      // Don't save messages on unmount - this is causing excessive message saving
-      // Only uncomment this if we determine it's necessary for some reason
-
-      /*
-      if (messages.length > 0 && unwrappedParams.id) {
-        console.log('Saving messages on component unmount');
-        saveMessages(messages);
-        
-        // Reset all the flags when unmounting
-        console.log('Cleaning up refs and flags on unmount');
-        hasInitializedRef.current = false;
-        hasLoadedFromStorageRef.current = false;
+  // Move fetchQuizResults function declaration to before the useEffect that uses it
+  const fetchQuizResults = React.useCallback(async () => {
+    if (!unwrappedParams.id) return [];
+    
+    try {
+      setIsLoadingQuizResults(true);
+      console.log(`Fetching quiz results for conversation ${unwrappedParams.id}`);
+      
+      // First try the new endpoint
+      let response = await fetch(`/api/quiz-results/conversation/${unwrappedParams.id}`);
+      
+      if (!response.ok) {
+        console.error(`Failed to fetch quiz results: ${response.status}`);
+        throw new Error(`Failed to fetch quiz results: ${response.status}`);
       }
-      */
+      
+      let data = await response.json();
+      
+      if (data.success && Array.isArray(data.results)) {
+        console.log(`Loaded ${data.results.length} quiz results for conversation`);
+        setQuizResultsList(data.results);
+        
+        // If results are found, use the most recent one for display
+        if (data.results.length > 0) {
+          const latestResult = data.results[0]; // Assuming results are sorted by date
+          setQuizFeedback(latestResult.feedback || "");
+          setQuizStrengths(latestResult.strength_areas || []);
+          setQuizWeaknesses(latestResult.weakness_areas || []);
+          // Don't set showQuizResults here - let the caller decide
+          return data.results;
+        }
+        return [];
+      } else {
+        console.warn('No quiz results found for this conversation or API returned an error', data.error);
+        // Try getting all user's quiz results as fallback
+        response = await fetch('/api/quiz-results/user');
+        if (response.ok) {
+          data = await response.json();
+          if (data.success && Array.isArray(data.results)) {
+            // Filter for results that might be related to this conversation
+            const filtered = data.results.filter((r: { conversation_id?: string }) => 
+              r.conversation_id === unwrappedParams.id ||
+              !r.conversation_id // Include results with no conversation ID
+            );
+            
+            if (filtered.length > 0) {
+              console.log(`Found ${filtered.length} quiz results from user's history that match this conversation`);
+              setQuizResultsList(filtered);
+              
+              // Use the most recent one for display
+              const latestResult = filtered[0];
+              setQuizFeedback(latestResult.feedback || "");
+              setQuizStrengths(latestResult.strength_areas || []);
+              setQuizWeaknesses(latestResult.weakness_areas || []);
+              // Don't set showQuizResults here - let the caller decide
+              return filtered;
+            }
+          }
+        }
+      }
+      return [];
+    } catch (error) {
+      console.error('Error fetching quiz results:', error);
+      return [];
+    } finally {
+      setIsLoadingQuizResults(false);
+    }
+  }, [unwrappedParams.id]);
 
-      // Just clean up the flags
-      console.log("Cleaning up refs and flags on unmount");
-      hasInitializedRef.current = false;
-      hasLoadedFromStorageRef.current = false;
-    };
-  }, [messages, unwrappedParams.id]); // Removed saveMessages dependency as it's no longer used
+  // Update the fetchQuizResults to not automatically show results
+  useEffect(() => {
+    if (unwrappedParams.id) {
+      fetchQuizResults();
+    }
+  }, [unwrappedParams.id, fetchQuizResults]);
+
+  // Add this function with the other formatter functions
+  const formatDate = (dateString: string) => {
+    try {
+      const date = new Date(dateString);
+      return new Intl.DateTimeFormat("en-US", {
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+      }).format(date);
+    } catch (e) {
+      console.error("Error formatting date:", e);
+      return dateString || "Unknown date";
+    }
+  };
 
   if (isLoading) {
     return (
@@ -829,6 +1043,15 @@ export default function ConversationPage({
           <Button
             variant="ghost"
             size="sm"
+            className="text-white hover:bg-slate-800"
+            onClick={() => setIsQuizHistoryDialogOpen(true)}
+          >
+            <ClipboardIcon className="h-5 w-5 mr-1" />
+            Past Results
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
             className="text-white hover:bg-red-600/20"
             onClick={() => setIsEndSessionDialogOpen(true)}
           >
@@ -848,98 +1071,113 @@ export default function ConversationPage({
       <main className="flex-1 flex flex-col p-4 md:p-8 min-h-0">
         <div className="flex-1 mb-4 overflow-y-auto bg-slate-800 rounded-lg p-4 min-h-0">
           <div className="flex flex-col gap-4">
-            {messages.map((message, index) => (
-              <div
-                key={index}
-                className={`p-4 rounded-lg ${
-                  message.role === "user"
-                    ? "bg-slate-700 ml-auto max-w-[80%]"
-                    : "bg-slate-900 border border-white/10 mr-auto max-w-[80%]"
-                }`}
-              >
-                {message.role === "assistant" ? (
-                  <div className="prose prose-invert prose-sm max-w-none">
-                    <ReactMarkdown
-                      remarkPlugins={[remarkGfm]}
-                      components={{
-                        a: (props) => (
-                          <a
-                            {...props}
-                            className="text-white underline hover:text-slate-300"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                          />
-                        ),
-                        ul: (props) => (
-                          <ul
-                            {...props}
-                            className="list-disc pl-5 space-y-1 text-white"
-                          />
-                        ),
-                        ol: (props) => (
-                          <ol
-                            {...props}
-                            className="list-decimal pl-5 space-y-1 text-white"
-                          />
-                        ),
-                        code: ({ inline, ...props }: CodeProps) =>
-                          inline ? (
-                            <code
+            {messages.length > 0 ? (
+              messages.map((message, index) => (
+                <div
+                  key={index}
+                  className={`p-4 rounded-lg ${
+                    message.role === "user"
+                      ? "bg-slate-700 ml-auto max-w-[80%]"
+                      : "bg-slate-900 border border-white/10 mr-auto max-w-[80%]"
+                  }`}
+                >
+                  {message.role === "assistant" ? (
+                    <div className="prose prose-invert prose-sm max-w-none">
+                      <ReactMarkdown
+                        remarkPlugins={[remarkGfm]}
+                        components={{
+                          a: (props) => (
+                            <a
                               {...props}
-                              className="bg-slate-700 px-1 py-0.5 rounded text-sm text-white"
-                            />
-                          ) : (
-                            <code
-                              {...props}
-                              className="block bg-slate-700 p-2 rounded-md overflow-x-auto text-sm my-2 text-white"
+                              className="text-white underline hover:text-slate-300"
+                              target="_blank"
+                              rel="noopener noreferrer"
                             />
                           ),
-                        pre: (props) => (
-                          <pre
-                            {...props}
-                            className="bg-transparent p-0 overflow-x-auto text-white"
-                          />
-                        ),
-                        h1: (props) => (
-                          <h1
-                            {...props}
-                            className="text-xl font-bold mt-4 mb-2 text-white"
-                          />
-                        ),
-                        h2: (props) => (
-                          <h2
-                            {...props}
-                            className="text-lg font-bold mt-3 mb-1 text-white"
-                          />
-                        ),
-                        h3: (props) => (
-                          <h3
-                            {...props}
-                            className="text-md font-bold mt-2 mb-1 text-white"
-                          />
-                        ),
-                        blockquote: (props) => (
-                          <blockquote
-                            {...props}
-                            className="border-l-2 border-white/30 pl-3 italic text-white"
-                          />
-                        ),
-                        p: (props) => <p {...props} className="text-white" />,
-                      }}
-                    >
-                      {message.content}
-                    </ReactMarkdown>
-                  </div>
-                ) : (
-                  <p className="text-white">{message.content}</p>
-                )}
-                <p className="text-white/50 text-xs mt-1">
-                  {safeFormatTime(message.timestamp)}
-                  {message.status === "sending" && " • Sending..."}
-                  {message.status === "error" && " • Error sending"}
-                </p>
+                          ul: (props) => (
+                            <ul
+                              {...props}
+                              className="list-disc pl-5 space-y-1 text-white"
+                            />
+                          ),
+                          ol: (props) => (
+                            <ol
+                              {...props}
+                              className="list-decimal pl-5 space-y-1 text-white"
+                            />
+                          ),
+                          code: ({ inline, ...props }: CodeProps) =>
+                            inline ? (
+                              <code
+                                {...props}
+                                className="bg-slate-700 px-1 py-0.5 rounded text-sm text-white"
+                              />
+                            ) : (
+                              <code
+                                {...props}
+                                className="block bg-slate-700 p-2 rounded-md overflow-x-auto text-sm my-2 text-white"
+                              />
+                            ),
+                          pre: (props) => (
+                            <pre
+                              {...props}
+                              className="bg-transparent p-0 overflow-x-auto text-white"
+                            />
+                          ),
+                          h1: (props) => (
+                            <h1
+                              {...props}
+                              className="text-xl font-bold mt-4 mb-2 text-white"
+                            />
+                          ),
+                          h2: (props) => (
+                            <h2
+                              {...props}
+                              className="text-lg font-bold mt-3 mb-1 text-white"
+                            />
+                          ),
+                          h3: (props) => (
+                            <h3
+                              {...props}
+                              className="text-md font-bold mt-2 mb-1 text-white"
+                            />
+                          ),
+                          blockquote: (props) => (
+                            <blockquote
+                              {...props}
+                              className="border-l-2 border-white/30 pl-3 italic text-white"
+                            />
+                          ),
+                          p: (props) => <p {...props} className="text-white" />,
+                        }}
+                      >
+                        {message.content}
+                      </ReactMarkdown>
+                    </div>
+                  ) : (
+                    <p className="text-white">{message.content}</p>
+                  )}
+                  <p className="text-white/50 text-xs mt-1">
+                    {safeFormatTime(message.timestamp)}
+                    {message.status === "sending" && " • Sending..."}
+                    {message.status === "error" && " • Error sending"}
+                  </p>
+                </div>
+              ))
+            ) : isMessagesLoading ? (
+              <div className="flex flex-col items-center justify-center h-64 w-full">
+                <div className="flex space-x-3 items-center bg-slate-900 rounded-lg p-4">
+                  <div className="w-3 h-3 bg-white rounded-full animate-pulse"></div>
+                  <div className="w-3 h-3 bg-white rounded-full animate-pulse" style={{ animationDelay: "0.2s" }}></div>
+                  <div className="w-3 h-3 bg-white rounded-full animate-pulse" style={{ animationDelay: "0.4s" }}></div>
+                </div>
+                <p className="text-white mt-4">Loading messages...</p>
               </div>
-            ))}
+            ) : (
+              <div className="flex flex-col items-center justify-center h-64 w-full">
+                <p className="text-white text-center">No messages yet. Start the conversation!</p>
+              </div>
+            )}
 
             {isTyping && (
               <div className="self-start bg-slate-900 border border-white/10 text-white rounded-lg p-3 max-w-md">
@@ -953,69 +1191,6 @@ export default function ConversationPage({
                     className="w-2 h-2 bg-white rounded-full animate-bounce"
                     style={{ animationDelay: "0.4s" }}
                   ></div>
-                </div>
-              </div>
-            )}
-
-            {/* Display Quiz Results when available */}
-            {showQuizResults && (
-              <div className="bg-slate-900 border border-white/10 p-4 rounded-lg self-start max-w-[95%] w-full overflow-hidden">
-                <div className="flex items-center justify-between mb-3">
-                  <h3 className="text-xl font-semibold text-white">
-                    Last Quiz Results
-                  </h3>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="text-white/70 hover:text-white hover:bg-slate-700 h-8 px-2"
-                    onClick={() => setShowQuizResults(false)}
-                  >
-                    <span className="sr-only">Close</span>
-                    <CloseIcon className="h-4 w-4" />
-                  </Button>
-                </div>
-
-                {quizFeedback && (
-                  <div className="mb-4 overflow-y-auto max-h-[300px] bg-slate-700 p-4 rounded-md">
-                    <h4 className="text-lg font-medium text-white mb-2 sticky top-0 bg-slate-700/90 py-1">
-                      Feedback
-                    </h4>
-                    <div className="whitespace-pre-line text-white">
-                      {quizFeedback}
-                    </div>
-                  </div>
-                )}
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-3">
-                  {quizStrengths.length > 0 && (
-                    <div className="bg-slate-800 p-3 rounded-md overflow-y-auto max-h-[200px]">
-                      <h4 className="text-lg font-medium text-white mb-2 flex items-center sticky top-0 bg-slate-800/90 py-1">
-                        <span className="mr-2">💪</span> Strengths
-                      </h4>
-                      <ul className="list-disc pl-5 space-y-1 text-white">
-                        {quizStrengths.map((strength, i) => (
-                          <li key={i} className="break-words">
-                            {strength}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-
-                  {quizWeaknesses.length > 0 && (
-                    <div className="bg-slate-800 p-3 rounded-md overflow-y-auto max-h-[200px]">
-                      <h4 className="text-lg font-medium text-white mb-2 flex items-center sticky top-0 bg-slate-800/90 py-1">
-                        <span className="mr-2">🎯</span> Areas to Improve
-                      </h4>
-                      <ul className="list-disc pl-5 space-y-1 text-white">
-                        {quizWeaknesses.map((weakness, i) => (
-                          <li key={i} className="break-words">
-                            {weakness}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
                 </div>
               </div>
             )}
@@ -1104,8 +1279,161 @@ export default function ConversationPage({
         quiz={quiz}
         isLoading={isGeneratingQuiz}
         learningOption={conversation?.learning_option || "unknown"}
+        conversationId={unwrappedParams.id}
         onQuizComplete={handleQuizResults}
       />
+
+      {/* Quiz Results Dialog */}
+      <Dialog
+        open={isQuizResultsDialogOpen}
+        onOpenChange={setIsQuizResultsDialogOpen}
+      >
+        <DialogContent className="bg-black text-white border-slate-800 shadow-slate-900 max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>Quiz Results</DialogTitle>
+            <DialogDescription className="text-white/70">
+              Review your performance and feedback from the last quiz.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="max-h-[70vh] overflow-y-auto pr-2">
+            {quizFeedback && (
+              <div className="mb-4 bg-slate-700 p-4 rounded-md">
+                <h4 className="text-lg font-medium text-white mb-2 sticky top-0 bg-slate-700/90 py-1">
+                  Feedback
+                </h4>
+                <div className="whitespace-pre-line text-white">
+                  {quizFeedback}
+                </div>
+              </div>
+            )}
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-3">
+              {quizStrengths.length > 0 && (
+                <div className="bg-slate-800 p-3 rounded-md">
+                  <h4 className="text-lg font-medium text-white mb-2 flex items-center sticky top-0 bg-slate-800/90 py-1">
+                    <span className="mr-2">💪</span> Strengths
+                  </h4>
+                  <ul className="list-disc pl-5 space-y-1 text-white">
+                    {quizStrengths.map((strength, i) => (
+                      <li key={i} className="break-words">
+                        {strength}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {quizWeaknesses.length > 0 && (
+                <div className="bg-slate-800 p-3 rounded-md">
+                  <h4 className="text-lg font-medium text-white mb-2 flex items-center sticky top-0 bg-slate-800/90 py-1">
+                    <span className="mr-2">🎯</span> Areas to Improve
+                  </h4>
+                  <ul className="list-disc pl-5 space-y-1 text-white">
+                    {quizWeaknesses.map((weakness, i) => (
+                      <li key={i} className="break-words">
+                        {weakness}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="default"
+              onClick={() => setIsQuizResultsDialogOpen(false)}
+              className="bg-slate-800 hover:bg-slate-700 text-white"
+            >
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Quiz History Dialog */}
+      <Dialog
+        open={isQuizHistoryDialogOpen}
+        onOpenChange={setIsQuizHistoryDialogOpen}
+      >
+        <DialogContent className="bg-black text-white border-slate-800 shadow-slate-900 max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>Quiz History</DialogTitle>
+            <DialogDescription className="text-white/70">
+              View your previous quiz results and feedback.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="max-h-[70vh] overflow-y-auto pr-2">
+            <div className="flex justify-end mb-3">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-white/70 hover:text-white hover:bg-slate-700 h-8 px-2"
+                onClick={fetchQuizResults}
+              >
+                <RefreshCcwIcon className="h-4 w-4 mr-1" />
+                Refresh
+              </Button>
+            </div>
+            
+            {isLoadingQuizResults ? (
+              <div className="flex justify-center p-4">
+                <p className="text-white">Loading quiz results...</p>
+              </div>
+            ) : quizResultsList.length === 0 ? (
+              <div className="bg-slate-800 p-4 rounded-md text-center">
+                <p className="text-white">No quiz results found.</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {quizResultsList.map((result, index) => (
+                  <div key={result.id} className="bg-slate-800 p-3 rounded-md">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <h4 className="font-medium text-white">
+                          Quiz {index + 1}: {Math.round(result.score / result.total_questions * 100)}% Score
+                        </h4>
+                        <p className="text-sm text-white/70">
+                          {formatDate(result.created_at)} • {result.score}/{result.total_questions} correct
+                        </p>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-white/70 hover:text-white"
+                        onClick={() => {
+                          // Set current quiz results to this historic result
+                          setQuizFeedback(result.feedback || "");
+                          setQuizStrengths(result.strength_areas || []);
+                          setQuizWeaknesses(result.weakness_areas || []);
+                          setSelectedQuizResult(result);
+                          setIsQuizHistoryDialogOpen(false);
+                          setIsQuizResultsDialogOpen(true);
+                        }}
+                      >
+                        View Details
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="default"
+              onClick={() => setIsQuizHistoryDialogOpen(false)}
+              className="bg-slate-800 hover:bg-slate-700 text-white"
+            >
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* End Session Dialog */}
       <Dialog
@@ -1252,6 +1580,46 @@ function QuizIcon(props: React.SVGProps<SVGSVGElement>) {
       <line x1="18" y1="5" x2="18" y2="8" />
       <line x1="18" y1="10" x2="18" y2="13" />
       <rect x="2" y="2" width="20" height="20" rx="5" />
+    </svg>
+  );
+}
+
+function RefreshCcwIcon(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg
+      {...props}
+      xmlns="http://www.w3.org/2000/svg"
+      width="24"
+      height="24"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M1 4v6h6" />
+      <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10" />
+    </svg>
+  );
+}
+
+function ClipboardIcon(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg
+      {...props}
+      xmlns="http://www.w3.org/2000/svg"
+      width="24"
+      height="24"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M16 4h2a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" />
+      <rect x="8" y="2" width="8" height="4" rx="1" ry="1" />
     </svg>
   );
 }
