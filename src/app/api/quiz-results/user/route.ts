@@ -3,6 +3,62 @@ import { getCurrentUser } from '@/app/api/actions';
 import { quizResultService } from '@/utils/weaviate/dataService';
 import { getWeaviateClient } from '@/utils/weaviate/client';
 
+// Define interfaces for proper typing
+interface DirectQuizResult {
+  userId: string;
+  quizId: string;
+  conversationId?: string;
+  score: number;
+  totalQuestions: number;
+  feedback?: string;
+  learningOption?: string;
+  strengthAreas?: string[];
+  weaknessAreas?: string[];
+  timestamp?: string;
+  responses?: Array<{
+    questionId: string;
+    question: string;
+    selectedOptionIndex: number;
+    correctOptionIndex: number;
+    isCorrect: boolean;
+  }>;
+  _additional?: {
+    id: string;
+  };
+  [key: string]: any; // For any other properties
+}
+
+// Define the QuizResult interface that includes both camelCase and snake_case properties
+interface QuizResult {
+  id?: string;
+  // CamelCase properties
+  userId?: string | number;
+  quizId?: string;
+  conversationId?: string;
+  score?: number;
+  totalQuestions?: number;
+  feedback?: string;
+  learningOption?: string;
+  strengthAreas?: string[];
+  weaknessAreas?: string[];
+  timestamp?: string | Date;
+  // Snake_case properties
+  user_id?: string | number;
+  quiz_id?: string;
+  conversation_id?: string;
+  total_questions?: number;
+  learning_option?: string;
+  strength_areas?: string[];
+  weakness_areas?: string[];
+  created_at?: string | Date;
+  // Additional properties
+  responses?: any[];
+  _additional?: {
+    id: string;
+  };
+  [key: string]: any; // For any other properties
+}
+
 export async function GET() {
   try {
     // Get the current user
@@ -48,7 +104,7 @@ export async function GET() {
       console.log(`Found ${directResults.length} quiz results via direct query`);
       
       // Convert the direct results
-      results = directResults.map(r => ({
+      results = directResults.map((r: DirectQuizResult) => ({
         ...r,
         id: r._additional?.id
       }));
@@ -85,19 +141,20 @@ export async function GET() {
     
     // Format the results to match the expected format
     // IMPROVEMENT: More robust handling of different property formats
-    const formattedResults = results.map(result => {
+    const formattedResults = results.map((result: QuizResult) => {
       // Get all properties from the result
       const props = Object.keys(result).filter(k => k !== '_additional');
       
       // First try standard camelCase format
       const id = result.id || '';
-      const quizId = result.quizId || result.quizId || '';
-      let userId = result.userId || result.userId || '';
-      const conversationId = result.conversationId || result.conversationId || '';
+      const quizId = result.quizId || result.quiz_id || '';
+      let userId = result.userId || result.user_id || '';
+      const conversationId = result.conversationId || result.conversation_id || '';
       let score = result.score || 0;
-      let totalQuestions = result.totalQuestions || result.totalQuestions || 0;
+      let totalQuestions = result.totalQuestions || result.total_questions || 0;
       const feedback = result.feedback || '';
-      const learningOption = result.learningOption || result.learningOption || 'unknown';
+      const learningOption = result.learningOption || result.learning_option || 'unknown';
+
       const strengthAreas = Array.isArray(result.strengthAreas) 
         ? result.strengthAreas 
         : Array.isArray(result.strengthAreas)

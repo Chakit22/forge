@@ -7,7 +7,9 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const conversationId = (await params).id;
+    const resolvedParams = await params;
+    const conversationId = resolvedParams.id;
+
     if (!conversationId) {
       return NextResponse.json(
         { error: 'Conversation ID is required' },

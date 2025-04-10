@@ -44,6 +44,35 @@ export type Quiz = BaseObject & {
   learningOption: string;
 };
 
+// Weaviate result type with _additional field
+type WeaviateResult = {
+  _additional?: {
+    id?: string;
+  };
+  [key: string]: any;
+};
+
+// WeaviateQuizResult type - represents the raw result from Weaviate
+type WeaviateQuizResult = WeaviateResult & {
+  userId: string;
+  quizId: string;
+  conversationId: string;
+  score: number;
+  totalQuestions: number;
+  responses?: {
+    questionId: number;
+    question: string;
+    selectedOptionIndex: number;
+    correctOptionIndex: number;
+    isCorrect: boolean;
+  }[];
+  feedback?: string;
+  learningOption?: string;
+  strengthAreas?: string[];
+  weaknessAreas?: string[];
+  timestamp?: string;
+};
+
 // QuizResult type
 export type QuizResult = BaseObject & {
   quizId: string;
@@ -353,7 +382,7 @@ export const quizResultService = {
       const quizResults = result?.data?.Get?.QuizResult || [];
       
       // Convert the results to add the id property from _additional.id
-      return quizResults.map(result => ({
+      return quizResults.map((result: WeaviateQuizResult) => ({
         ...result,
         id: result._additional?.id
       })) as QuizResult[];
@@ -383,7 +412,7 @@ export const quizResultService = {
       const quizResults = result?.data?.Get?.QuizResult || [];
       
       // Convert the results to add the id property from _additional.id
-      return quizResults.map(result => ({
+      return quizResults.map((result: WeaviateQuizResult) => ({
         ...result,
         id: result._additional?.id
       })) as QuizResult[];
@@ -413,7 +442,7 @@ export const quizResultService = {
       const quizResults = result?.data?.Get?.QuizResult || [];
       
       // Convert the results to add the id property from _additional.id
-      return quizResults.map(result => ({
+      return quizResults.map((result: WeaviateQuizResult) => ({
         ...result,
         id: result._additional?.id
       })) as QuizResult[];

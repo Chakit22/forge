@@ -20,6 +20,9 @@ import remarkGfm from "remark-gfm";
 import { Message } from "@/app/api/memoagent";
 import QuizModal from "@/components/QuizModal";
 import { Quiz } from "@/app/api/quiz-generator/route";
+import { FileViewer } from "@/components/FileViewer";
+import { getFileIcon, getReadableFileSize } from "@/lib/utils";
+import Image from "next/image";
 
 // Define types for ReactMarkdown components
 type CodeProps = React.DetailedHTMLProps<
@@ -110,6 +113,10 @@ export default function ConversationPage({
 
   // Maximum file size in bytes (10MB)
   const MAX_FILE_SIZE = 10 * 1024 * 1024;
+
+  // Add states for file viewer
+  const [isFileViewerOpen, setIsFileViewerOpen] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<FileAttachment | null>(null);
 
   const handleSessionEnd = React.useCallback(() => {
     // In a real app, you would save the session data to your API
@@ -210,12 +217,11 @@ export default function ConversationPage({
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
-  // Add a direct method to fetch messages from the API
+  // First, define fetchMessagesFromAPI without referencing scheduleMessageRetry
   const fetchMessagesFromAPI = React.useCallback(async () => {
     if (!unwrappedParams.id || !conversation) {
-      console.log(
-        "Cannot fetch messages: missing conversation ID or conversation data"
-      );
+      console.log("Cannot fetch messages: missing conversation ID or conversation data");
+      setIsMessagesLoading(false);
       return;
     }
 
@@ -289,37 +295,52 @@ export default function ConversationPage({
           console.error("Error saving messages to localStorage:", e);
         }
       } else {
-        console.warn(
-          "No messages returned from API or invalid response format"
-        );
-        // If we've tried multiple times and still haven't gotten messages, show empty state
-        if (loadingAttemptsRef.current >= 3) {
-          setMessages([]);
-        } else {
-          // Schedule another retry if we're under the maximum attempts
-          scheduleMessageRetry();
-        }
+        console.warn("No messages returned from API or invalid response format");
+        // No messages found - this is normal for a new conversation
+        setMessages([]);
+        hasLoadedFromStorageRef.current = true;
+        hasInitializedRef.current = true;
       }
     } catch (error) {
       console.error("Error fetching messages from API:", error);
-      // If we've tried multiple times and still haven't gotten messages, show empty state
+      
+      // If we've hit max retries, stop and show empty state
       if (loadingAttemptsRef.current >= 3) {
-        // No messages found, but we don't want to show an error
         setMessages([]);
+        hasLoadedFromStorageRef.current = true;
+        hasInitializedRef.current = true;
       } else {
-        // Schedule another retry if we're under the maximum attempts
-        scheduleMessageRetry();
+        // We'll call scheduleMessageRetry but it's defined later
+        // This will be connected in the dependency array after both functions are defined
+        if (messageLoadTimeoutRef.current) {
+          clearTimeout(messageLoadTimeoutRef.current);
+        }
+        
+        const backoffTime = Math.pow(3, loadingAttemptsRef.current) * 1000;
+        console.log(`Scheduling message retry in ${backoffTime}ms`);
+        
+        messageLoadTimeoutRef.current = setTimeout(() => {
+          fetchMessagesFromAPI();
+        }, backoffTime);
       }
     } finally {
       setIsMessagesLoading(false);
     }
   }, [unwrappedParams.id, conversation]);
 
-  // Helper function to schedule retry with exponential backoff
   const scheduleMessageRetry = React.useCallback(() => {
     // Clear any existing timeout
     if (messageLoadTimeoutRef.current) {
       clearTimeout(messageLoadTimeoutRef.current);
+    }
+
+    if (loadingAttemptsRef.current >= 3) {
+      console.log("Maximum retry attempts reached, stopping retries");
+      setIsMessagesLoading(false);
+      setMessages([]); // Just set empty messages after max retries
+      hasLoadedFromStorageRef.current = true;
+      hasInitializedRef.current = true;
+      return;
     }
 
     // Calculate backoff time (1s, 3s, 9s)
@@ -330,6 +351,50 @@ export default function ConversationPage({
       fetchMessagesFromAPI();
     }, backoffTime);
   }, [fetchMessagesFromAPI]);
+
+  // Add an effect to set a final timeout to stop message loading
+  useEffect(() => {
+    // Set a timeout to forcibly end message loading if it's taking too long
+    const forceEndLoadingTimeout = setTimeout(() => {
+      if (isMessagesLoading) {
+        console.log("Force ending message loading after timeout");
+        setIsMessagesLoading(false);
+        
+        // If we still haven't loaded messages, just set an empty array
+        if (!hasLoadedFromStorageRef.current) {
+          console.log("No messages loaded after timeout, initializing with empty array");
+          setMessages([]);
+          hasLoadedFromStorageRef.current = true;
+          hasInitializedRef.current = true;
+        }
+      }
+    }, 15000); // 15 seconds max loading time
+    
+    return () => {
+      clearTimeout(forceEndLoadingTimeout);
+    };
+  }, [isMessagesLoading]);
+
+  // Add this useEffect to ensure loading state doesn't get stuck
+  useEffect(() => {
+    // Set a maximum time limit for the loading state
+    if (isMessagesLoading) {
+      const maxLoadingTimeout = setTimeout(() => {
+        console.log("Maximum loading time reached, forcing end of loading state");
+        setIsMessagesLoading(false);
+
+        // If we still don't have messages by now, just set empty array
+        if (!hasLoadedFromStorageRef.current) {
+          console.log("Setting empty messages array after timeout");
+          hasLoadedFromStorageRef.current = true;
+          hasInitializedRef.current = true;
+          setMessages([]);
+        }
+      }, 10000); // 10 second maximum loading time
+
+      return () => clearTimeout(maxLoadingTimeout);
+    }
+  }, [isMessagesLoading, setMessages]);
 
   // Handle messages loaded from the load-messages event
   const handleLoadMessages = React.useCallback(
@@ -537,6 +602,15 @@ export default function ConversationPage({
         name: a.name,
         type: a.type,
         content: a.content,
+        // Add metadata for better AI interpretation
+        metadata: {
+          isImage: a.type.startsWith('image/'),
+          isPdf: a.type === 'application/pdf',
+          isDocument: a.type.includes('word') || a.type.includes('doc'),
+          isSpreadsheet: a.type.includes('excel') || a.type.includes('spreadsheet') || a.type.includes('csv'),
+          isText: !a.type.startsWith('image/') && !a.type.includes('pdf') && !a.type.includes('word') && !a.type.includes('excel'),
+          size: a.size
+        }
       }));
 
       console.log(`Sending message with ${attachmentData.length} attachments`);
@@ -547,6 +621,8 @@ export default function ConversationPage({
             name: a.name,
             type: a.type,
             contentLength: a.content.length,
+            isImage: a.type.startsWith('image/'),
+            isPdf: a.type === 'application/pdf'
           }))
         );
       }
@@ -562,6 +638,37 @@ export default function ConversationPage({
         role: "user",
         content: userMessage.content,
       });
+
+      // Build a more descriptive message for the AI if there are attachments
+      let aiContent = userMessage.content;
+      
+      // If we have attachments, add special content notifications for the AI
+      if (attachments.length > 0) {
+        // Start with the user message
+        const contentParts = [userMessage.content || ""];
+        
+        // For each image attachment, add a special notation that helps the AI understand
+        attachments.forEach((attachment, index) => {
+          if (attachment.type.startsWith('image/')) {
+            // For images, directly add the base64 data in markdown format for the AI to see
+            contentParts.push(`\n\n![Image ${index + 1}: ${attachment.name}](data:${attachment.type};base64,${attachment.content})`);
+          } else if (attachment.type === 'application/pdf') {
+            contentParts.push(`\n\n[PDF Document ${index + 1}: ${attachment.name}] - The user has uploaded a PDF document.`);
+          } else if (attachment.type.includes('word') || attachment.type.includes('doc')) {
+            contentParts.push(`\n\n[Document ${index + 1}: ${attachment.name}] - The user has uploaded a document file.`);
+          } else if (attachment.type.includes('excel') || attachment.type.includes('spreadsheet') || attachment.type.includes('csv')) {
+            contentParts.push(`\n\n[Spreadsheet ${index + 1}: ${attachment.name}] - The user has uploaded a spreadsheet.`);
+          } else {
+            contentParts.push(`\n\n[File ${index + 1}: ${attachment.name}] - The user has uploaded a file.`);
+          }
+        });
+        
+        // Replace the original message with our enhanced version
+        aiContent = contentParts.join('');
+        
+        // Update the last message in the API messages array with our enhanced content
+        apiMessages[apiMessages.length - 1].content = aiContent;
+      }
 
       // Determine which API endpoint to use
       const apiEndpoint = "/api/chat";
@@ -823,7 +930,19 @@ export default function ConversationPage({
           console.log(
             `File ${file.name} loaded, content length: ${content.length}`
           );
-          const base64Content = content.split(",")[1]; // Remove the data URL prefix
+          
+          // Use the correct format based on file type
+          let base64Content;
+          if (content.startsWith('data:')) {
+            // For images, PDFs, etc. that use DataURL format, extract base64 part
+            base64Content = content.split(",")[1];
+            console.log(`Extracted base64 content from DataURL for ${file.name}, type: ${file.type}`);
+          } else {
+            // For text files that don't have a data URL prefix
+            base64Content = btoa(content);
+            console.log(`Encoded text content to base64 for ${file.name}, type: ${file.type}`);
+          }
+          
           console.log(`Base64 content length: ${base64Content.length}`);
 
           const newAttachment: FileAttachment = {
@@ -837,18 +956,31 @@ export default function ConversationPage({
         }
       };
 
-      reader.onerror = (error) => {
-        console.error(`Error reading file ${file.name}:`, error);
-        toast.error(`Failed to read file ${file.name}. Please try again.`);
-      };
-
-      reader.readAsDataURL(file);
+      // Use readAsDataURL for binary files like images, PDFs
+      if (file.type.startsWith('image/') || 
+          file.type === 'application/pdf' ||
+          file.type.includes('word') ||
+          file.type.includes('excel') ||
+          file.type.includes('spreadsheet')) {
+        console.log(`Reading ${file.name} as DataURL (binary file)`);
+        reader.readAsDataURL(file);
+      } else {
+        // Use readAsText for text files
+        console.log(`Reading ${file.name} as text`);
+        reader.readAsText(file);
+      }
     });
 
     // Reset the file input
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
+  };
+
+  // Open file viewer for preview
+  const openFileViewer = (file: FileAttachment) => {
+    setSelectedFile(file);
+    setIsFileViewerOpen(true);
   };
 
   // Handle removing an attachment
@@ -1197,6 +1329,58 @@ export default function ConversationPage({
                             />
                           ),
                           p: (props) => <p {...props} className="text-white" />,
+                          img: ({ src, alt, ...props }) => {
+                            // Handle base64 encoded images in markdown
+                            if (src && src.startsWith('data:image')) {
+                              return (
+                                <div className="my-4">
+                                  {/* Base64 images need to use img since Next/Image doesn't support them */}
+                                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                                  <img
+                                    src={src}
+                                    alt={alt || "Image"}
+                                    className="max-w-full rounded-md shadow-md border border-slate-700 object-contain max-h-[600px]"
+                                    loading="lazy"
+                                    onClick={() => {
+                                      // Create a temporary "file" to view in our FileViewer
+                                      const content = src.split(',')[1];
+                                      const type = src.split(';')[0].split(':')[1];
+                                      if (content) {
+                                        setSelectedFile({
+                                          id: crypto.randomUUID(),
+                                          name: alt || "Image",
+                                          type: type || "image/png",
+                                          size: content.length * 0.75, // Approximate size
+                                          content: content
+                                        });
+                                        setIsFileViewerOpen(true);
+                                      }
+                                    }}
+                                    style={{cursor: 'pointer'}}
+                                    {...props}
+                                  />
+                                  <p className="text-xs text-center text-white/60 mt-1">
+                                    Click to enlarge
+                                  </p>
+                                </div>
+                              );
+                            }
+                            
+                            // For relative paths or URL parsing errors, use a Next-friendly approach
+                            return (
+                              <div className="my-2">
+                                {/* We need to use an img tag for relative paths that Next/Image can't handle */}
+                                {/* eslint-disable-next-line @next/next/no-img-element */}
+                                <img
+                                  src={src}
+                                  alt={alt || ""}
+                                  className="max-w-full h-auto rounded my-2 border border-slate-700"
+                                  loading="lazy"
+                                  {...props}
+                                />
+                              </div>
+                            );
+                          },
                         }}
                       >
                         {message.content}
@@ -1227,11 +1411,15 @@ export default function ConversationPage({
                 </div>
                 <p className="text-white mt-4">Loading messages...</p>
               </div>
-            ) : (
+            ) : hasLoadedFromStorageRef.current ? (
               <div className="flex flex-col items-center justify-center h-64 w-full">
                 <p className="text-white text-center">
                   No messages yet. Start the conversation!
                 </p>
+              </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center h-64 w-full">
+                <p className="text-white text-center">Initializing conversation...</p>
               </div>
             )}
 
@@ -1265,12 +1453,23 @@ export default function ConversationPage({
                   key={file.id}
                   className="flex items-center bg-slate-800 rounded px-2 py-1"
                 >
-                  <span className="text-white text-xs truncate max-w-[150px]">
+                  <button
+                    onClick={() => openFileViewer(file)}
+                    className="text-blue-400 hover:text-blue-300 text-xs truncate max-w-[150px] mr-1 flex items-center"
+                    aria-label={`Preview ${file.name}`}
+                    tabIndex={0}
+                  >
+                    <span className="mr-1">{getFileIcon(file.type)}</span>
                     {file.name}
+                  </button>
+                  <span className="text-xs text-slate-400 mr-2">
+                    {getReadableFileSize(file.size)}
                   </span>
                   <button
                     onClick={() => removeAttachment(file.id)}
                     className="ml-2 text-white opacity-70 hover:opacity-100"
+                    aria-label={`Remove ${file.name}`}
+                    tabIndex={0}
                   >
                     <CloseIcon className="h-3 w-3" />
                   </button>
@@ -1299,6 +1498,8 @@ export default function ConversationPage({
               onClick={() => fileInputRef.current?.click()}
               className="bg-slate-800 hover:bg-slate-700 text-white h-8 px-2 flex-1"
               type="button"
+              aria-label="Attach file"
+              tabIndex={0}
             >
               <PaperclipIcon className="h-5 w-5" />
             </Button>
@@ -1309,6 +1510,8 @@ export default function ConversationPage({
               disabled={
                 (!inputMessage.trim() && attachments.length === 0) || isTyping
               }
+              aria-label="Send message"
+              tabIndex={0}
             >
               <SendIcon className="h-5 w-5" />
             </Button>
@@ -1320,11 +1523,12 @@ export default function ConversationPage({
             onChange={handleFileChange}
             className="hidden"
             multiple
-            accept="image/*,application/pdf,.doc,.docx,.txt,.csv,.xls,.xlsx"
+            accept="image/*,application/pdf,.doc,.docx,.txt,.csv,.xls,.xlsx,.rtf,.ppt,.pptx"
+            aria-label="File upload"
           />
         </div>
         <div className="text-white/50 text-xs mt-1">
-          Supported files: Images, PDFs, Documents, Text files (Max 10MB)
+          Supported files: Images, PDFs, Office Documents, Text files (Max 10MB)
         </div>
       </main>
 
@@ -1535,6 +1739,13 @@ export default function ConversationPage({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* File Viewer */}
+      <FileViewer
+        isOpen={isFileViewerOpen}
+        onClose={() => setIsFileViewerOpen(false)}
+        file={selectedFile}
+      />
     </div>
   );
 }
@@ -1681,6 +1892,26 @@ function ClipboardIcon(props: React.SVGProps<SVGSVGElement>) {
     >
       <path d="M16 4h2a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" />
       <rect x="8" y="2" width="8" height="4" rx="1" ry="1" />
+    </svg>
+  );
+}
+
+function EyeIcon(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg
+      {...props}
+      xmlns="http://www.w3.org/2000/svg"
+      width="24"
+      height="24"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z" />
+      <circle cx="12" cy="12" r="3" />
     </svg>
   );
 }
