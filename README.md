@@ -77,4 +77,4 @@ For more information, see [Vercel's documentation on function limitations](https
 
 ## Deployment
 
-**Vercel Link** : [https://forge-zeta.vercel.app/](https://forge-zeta.vercel.app/)
+**Vercel Link** : [https://forge-m3urw1w73-chakit22s-projects.vercel.app/login](https://forge-m3urw1w73-chakit22s-projects.vercel.app/login)
